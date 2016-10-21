@@ -1,0 +1,4117 @@
+diff --git a/OpenKeychain/src/main/AndroidManifest.xml b/OpenKeychain/src/main/AndroidManifest.xml
+index 0ab1e6a..f22c59f 100644
+--- a/OpenKeychain/src/main/AndroidManifest.xml
++++ b/OpenKeychain/src/main/AndroidManifest.xml
+@@ -484,6 +484,11 @@
+             android:label="@string/title_key_server_preference"
+             android:windowSoftInputMode="stateHidden" />
+         <activity
++            android:name=".ui.SettingsSmartPGPAuthoritiesActivity"
++            android:configChanges="orientation|screenSize|keyboardHidden|keyboard"
++            android:label="@string/title_smartpgp_authorities_preference"
++            android:windowSoftInputMode="stateHidden" />
++        <activity
+             android:name=".ui.SettingsCacheTTLActivity"
+             android:configChanges="orientation|screenSize|keyboardHidden|keyboard"
+             android:label="@string/title_cache_ttl_preference"
+diff --git a/OpenKeychain/src/main/java/org/sufficientlysecure/keychain/Constants.java b/OpenKeychain/src/main/java/org/sufficientlysecure/keychain/Constants.java
+index fd6e903..9f40cc5 100644
+--- a/OpenKeychain/src/main/java/org/sufficientlysecure/keychain/Constants.java
++++ b/OpenKeychain/src/main/java/org/sufficientlysecure/keychain/Constants.java
+@@ -123,6 +123,8 @@ public final class Constants {
+         public static final String EXPERIMENTAL_ENABLE_WORD_CONFIRM = "experimentalEnableWordConfirm";
+         public static final String EXPERIMENTAL_ENABLE_LINKED_IDENTITIES = "experimentalEnableLinkedIdentities";
+         public static final String EXPERIMENTAL_ENABLE_KEYBASE = "experimentalEnableKeybase";
++        public static final String EXPERIMENTAL_SMARTPGP_VERIFY_AUTHORITY = "smartpgp_authorities_pref";
++        public static final String EXPERIMENTAL_SMARTPGP_AUTHORITIES = "smartpgp_authorities";
+ 
+         public static final class Theme {
+             public static final String LIGHT = "light";
+diff --git a/OpenKeychain/src/main/java/org/sufficientlysecure/keychain/operations/results/OperationResult.java b/OpenKeychain/src/main/java/org/sufficientlysecure/keychain/operations/results/OperationResult.java
+index be736d7..5cf6415 100644
+--- a/OpenKeychain/src/main/java/org/sufficientlysecure/keychain/operations/results/OperationResult.java
++++ b/OpenKeychain/src/main/java/org/sufficientlysecure/keychain/operations/results/OperationResult.java
+@@ -566,6 +566,7 @@ public abstract class OperationResult implements Parcelable {
+         MSG_MF_ERROR_INVALID_FLAGS_FOR_KEYTOCARD(LogLevel.ERROR, R.string.msg_mf_error_invalid_flags_for_keytocard),
+         MSG_MF_ERROR_BAD_SECURITY_TOKEN_ALGO(LogLevel.ERROR, R.string.edit_key_error_bad_security_token_algo),
+         MSG_MF_ERROR_BAD_SECURITY_TOKEN_SIZE(LogLevel.ERROR, R.string.edit_key_error_bad_security_token_size),
++        MSG_MF_ERROR_BAD_SECURITY_TOKEN_CURVE(LogLevel.ERROR, R.string.edit_key_error_bad_security_token_curve),
+         MSG_MF_ERROR_BAD_SECURITY_TOKEN_STRIPPED(LogLevel.ERROR, R.string.edit_key_error_bad_security_token_stripped),
+         MSG_MF_MASTER (LogLevel.DEBUG, R.string.msg_mf_master),
+         MSG_MF_PASSPHRASE (LogLevel.INFO, R.string.msg_mf_passphrase),
+diff --git a/OpenKeychain/src/main/java/org/sufficientlysecure/keychain/pgp/CanonicalizedPublicKey.java b/OpenKeychain/src/main/java/org/sufficientlysecure/keychain/pgp/CanonicalizedPublicKey.java
+index 177fe15..95be5bb 100644
+--- a/OpenKeychain/src/main/java/org/sufficientlysecure/keychain/pgp/CanonicalizedPublicKey.java
++++ b/OpenKeychain/src/main/java/org/sufficientlysecure/keychain/pgp/CanonicalizedPublicKey.java
+@@ -18,14 +18,27 @@
+ 
+ package org.sufficientlysecure.keychain.pgp;
+ 
++import org.bouncycastle.asn1.ASN1ObjectIdentifier;
++import org.bouncycastle.asn1.nist.NISTObjectIdentifiers;
++import org.bouncycastle.bcpg.ECDHPublicBCPGKey;
++import org.bouncycastle.bcpg.HashAlgorithmTags;
++import org.bouncycastle.bcpg.SymmetricKeyAlgorithmTags;
+ import org.bouncycastle.bcpg.sig.KeyFlags;
++import org.bouncycastle.openpgp.PGPException;
+ import org.bouncycastle.openpgp.PGPPublicKey;
+ import org.bouncycastle.openpgp.PGPSignature;
++import org.bouncycastle.openpgp.operator.KeyFingerPrintCalculator;
++import org.bouncycastle.openpgp.operator.RFC6637Utils;
++import org.bouncycastle.openpgp.operator.jcajce.JcaPGPKeyConverter;
+ import org.bouncycastle.openpgp.operator.jcajce.JcePublicKeyKeyEncryptionMethodGenerator;
+ import org.sufficientlysecure.keychain.Constants;
++import org.sufficientlysecure.keychain.pgp.exception.PgpGeneralException;
+ import org.sufficientlysecure.keychain.util.IterableIterator;
+ import org.sufficientlysecure.keychain.util.Log;
+ 
++import java.io.IOException;
++import java.security.PublicKey;
++import java.security.interfaces.ECPublicKey;
+ import java.util.Calendar;
+ import java.util.Date;
+ import java.util.GregorianCalendar;
+@@ -189,4 +202,62 @@ public class CanonicalizedPublicKey extends UncachedPublicKey {
+         return !isRevoked() && !isExpired();
+     }
+ 
++    // For use only in card export; returns the public key.
++    public ECPublicKey getECPublicKey()
++            throws PgpGeneralException {
++        JcaPGPKeyConverter keyConverter = new JcaPGPKeyConverter();
++        PublicKey retVal;
++        try {
++            retVal = keyConverter.getPublicKey(mPublicKey);
++        } catch (PGPException e) {
++            throw new PgpGeneralException("Error converting public key!", e);
++        }
++
++        return (ECPublicKey) retVal;
++    }
++
++    public ASN1ObjectIdentifier getHashAlgorithm()
++            throws PGPException {
++        if (!isEC()) {
++            throw new PGPException("Key encryption OID is valid only for EC key!");
++        }
++
++        final ECDHPublicBCPGKey eck = (ECDHPublicBCPGKey)mPublicKey.getPublicKeyPacket().getKey();
++
++        switch (eck.getHashAlgorithm()) {
++            case HashAlgorithmTags.SHA256:
++                return NISTObjectIdentifiers.id_sha256;
++            case HashAlgorithmTags.SHA384:
++                return NISTObjectIdentifiers.id_sha384;
++            case HashAlgorithmTags.SHA512:
++                return NISTObjectIdentifiers.id_sha512;
++            default:
++                throw new PGPException("Invalid hash algorithm for EC key : " + eck.getHashAlgorithm());
++        }
++    }
++
++    public int getSymmetricKeySize()
++            throws PGPException {
++        if (!isEC()) {
++            throw new PGPException("Key encryption OID is valid only for EC key!");
++        }
++
++        final ECDHPublicBCPGKey eck = (ECDHPublicBCPGKey)mPublicKey.getPublicKeyPacket().getKey();
++
++        switch (eck.getSymmetricKeyAlgorithm()) {
++            case SymmetricKeyAlgorithmTags.AES_128:
++                return 128;
++            case SymmetricKeyAlgorithmTags.AES_192:
++                return 192;
++            case SymmetricKeyAlgorithmTags.AES_256:
++                return 256;
++            default:
++                throw new PGPException("Invalid symmetric encryption algorithm for EC key : " + eck.getSymmetricKeyAlgorithm());
++        }
++    }
++
++    public byte[] createUserKeyingMaterial(KeyFingerPrintCalculator fingerPrintCalculator)
++            throws IOException, PGPException {
++        return RFC6637Utils.createUserKeyingMaterial(mPublicKey.getPublicKeyPacket(), fingerPrintCalculator);
++    }
+ }
+diff --git a/OpenKeychain/src/main/java/org/sufficientlysecure/keychain/pgp/CanonicalizedSecretKey.java b/OpenKeychain/src/main/java/org/sufficientlysecure/keychain/pgp/CanonicalizedSecretKey.java
+index a02ff66..318c837 100644
+--- a/OpenKeychain/src/main/java/org/sufficientlysecure/keychain/pgp/CanonicalizedSecretKey.java
++++ b/OpenKeychain/src/main/java/org/sufficientlysecure/keychain/pgp/CanonicalizedSecretKey.java
+@@ -21,6 +21,7 @@ package org.sufficientlysecure.keychain.pgp;
+ 
+ import java.nio.ByteBuffer;
+ import java.security.PrivateKey;
++import java.security.interfaces.ECPrivateKey;
+ import java.security.interfaces.RSAPrivateCrtKey;
+ import java.util.Date;
+ import java.util.HashMap;
+@@ -319,6 +320,28 @@ public class CanonicalizedSecretKey extends CanonicalizedPublicKey {
+         return (RSAPrivateCrtKey)retVal;
+     }
+ 
++    // For use only in card export; returns the secret key.
++    public ECPrivateKey getECSecretKey()
++            throws PgpGeneralException {
++        if (mPrivateKeyState == PRIVATE_KEY_STATE_LOCKED) {
++            throw new PgpGeneralException("Cannot get secret key attributes while key is locked.");
++        }
++
++        if (mPrivateKeyState == PRIVATE_KEY_STATE_DIVERT_TO_CARD) {
++            throw new PgpGeneralException("Cannot get secret key attributes of divert-to-card key.");
++        }
++
++        JcaPGPKeyConverter keyConverter = new JcaPGPKeyConverter();
++        PrivateKey retVal;
++        try {
++            retVal = keyConverter.getPrivateKey(mPrivateKey);
++        } catch (PGPException e) {
++            throw new PgpGeneralException("Error converting private key! " + e.getMessage(), e);
++        }
++
++        return (ECPrivateKey) retVal;
++    }
++
+     public byte[] getIv() {
+         return mSecretKey.getIV();
+     }
+diff --git a/OpenKeychain/src/main/java/org/sufficientlysecure/keychain/pgp/PgpKeyOperation.java b/OpenKeychain/src/main/java/org/sufficientlysecure/keychain/pgp/PgpKeyOperation.java
+index 404e072..ed5d925 100644
+--- a/OpenKeychain/src/main/java/org/sufficientlysecure/keychain/pgp/PgpKeyOperation.java
++++ b/OpenKeychain/src/main/java/org/sufficientlysecure/keychain/pgp/PgpKeyOperation.java
+@@ -35,6 +35,10 @@ import java.util.Iterator;
+ import java.util.Stack;
+ import java.util.concurrent.atomic.AtomicBoolean;
+ 
++import org.bouncycastle.asn1.ASN1ObjectIdentifier;
++import org.bouncycastle.asn1.nist.NISTNamedCurves;
++import org.bouncycastle.bcpg.ECDHPublicBCPGKey;
++import org.bouncycastle.bcpg.ECDSAPublicBCPGKey;
+ import org.bouncycastle.bcpg.PublicKeyAlgorithmTags;
+ import org.bouncycastle.bcpg.S2K;
+ import org.bouncycastle.bcpg.sig.Features;
+@@ -1645,20 +1649,44 @@ public class PgpKeyOperation {
+     }
+ 
+     private static boolean checkSecurityTokenCompatibility(PGPSecretKey key, OperationLog log, int indent) {
+-        PGPPublicKey publicKey = key.getPublicKey();
+-        int algorithm = publicKey.getAlgorithm();
+-        if (algorithm != PublicKeyAlgorithmTags.RSA_ENCRYPT &&
+-                algorithm != PublicKeyAlgorithmTags.RSA_SIGN &&
+-                algorithm != PublicKeyAlgorithmTags.RSA_GENERAL) {
+-            log.add(LogType.MSG_MF_ERROR_BAD_SECURITY_TOKEN_ALGO, indent + 1);
+-            return false;
+-        }
+ 
+-        // Key size must be 2048
+-        int keySize = publicKey.getBitStrength();
+-        if (keySize != 2048) {
+-            log.add(LogType.MSG_MF_ERROR_BAD_SECURITY_TOKEN_SIZE, indent + 1);
+-            return false;
++        final PGPPublicKey publicKey = key.getPublicKey();
++        ASN1ObjectIdentifier curve;
++
++        switch (publicKey.getAlgorithm()) {
++            case PublicKeyAlgorithmTags.RSA_ENCRYPT:
++            case PublicKeyAlgorithmTags.RSA_SIGN:
++            case PublicKeyAlgorithmTags.RSA_GENERAL:
++                // Key size must be at least 2048
++                if (publicKey.getBitStrength() < 2048) {
++                    log.add(LogType.MSG_MF_ERROR_BAD_SECURITY_TOKEN_SIZE, indent + 1);
++                    return false;
++                }
++                break;
++
++            case PublicKeyAlgorithmTags.ECDH:
++                curve = ((ECDHPublicBCPGKey)(publicKey.getPublicKeyPacket().getKey())).getCurveOID();
++                if (!curve.equals(NISTNamedCurves.getOID("P-256")) &&
++                        !curve.equals(NISTNamedCurves.getOID("P-384")) &&
++                        !curve.equals(NISTNamedCurves.getOID("P-521"))) {
++                    log.add(LogType.MSG_MF_ERROR_BAD_SECURITY_TOKEN_CURVE, indent + 1);
++                    return false;
++                }
++                break;
++
++            case PublicKeyAlgorithmTags.ECDSA:
++                curve = ((ECDSAPublicBCPGKey)(publicKey.getPublicKeyPacket().getKey())).getCurveOID();
++                if (!curve.equals(NISTNamedCurves.getOID("P-256")) &&
++                        !curve.equals(NISTNamedCurves.getOID("P-384")) &&
++                        !curve.equals(NISTNamedCurves.getOID("P-521"))) {
++                    log.add(LogType.MSG_MF_ERROR_BAD_SECURITY_TOKEN_CURVE, indent + 1);
++                    return false;
++                }
++                break;
++
++            default:
++                log.add(LogType.MSG_MF_ERROR_BAD_SECURITY_TOKEN_ALGO, indent + 1);
++                return false;
+         }
+ 
+         // Secret key parts must be available
+diff --git a/OpenKeychain/src/main/java/org/sufficientlysecure/keychain/securitytoken/ECKeyFormat.java b/OpenKeychain/src/main/java/org/sufficientlysecure/keychain/securitytoken/ECKeyFormat.java
+new file mode 100644
+index 0000000..d3b4d5f
+--- /dev/null
++++ b/OpenKeychain/src/main/java/org/sufficientlysecure/keychain/securitytoken/ECKeyFormat.java
+@@ -0,0 +1,83 @@
++package org.sufficientlysecure.keychain.securitytoken;
++
++import org.bouncycastle.asn1.ASN1ObjectIdentifier;
++import org.bouncycastle.asn1.nist.NISTNamedCurves;
++import org.bouncycastle.asn1.x9.X9ECParameters;
++import org.bouncycastle.bcpg.sig.KeyFlags;
++import org.bouncycastle.math.ec.ECCurve;
++import org.sufficientlysecure.keychain.service.SaveKeyringParcel;
++
++// 4.3.3.6 Algorithm Attributes
++public class ECKeyFormat extends KeyFormat {
++
++    private final ECAlgorithmFormat mECAlgorithmFormat;
++    private final ASN1ObjectIdentifier mECCurveOID;
++
++    public ECKeyFormat(final ASN1ObjectIdentifier ecCurveOid,
++                       final ECAlgorithmFormat ecAlgorithmFormat) {
++        super(KeyFormatType.ECKeyFormatType);
++        mECAlgorithmFormat = ecAlgorithmFormat;
++        mECCurveOID = ecCurveOid;
++    }
++
++    public ECKeyFormat.ECAlgorithmFormat getAlgorithmFormat() {
++        return mECAlgorithmFormat;
++    }
++
++    public ASN1ObjectIdentifier getCurveOID() { return mECCurveOID; }
++
++    public enum ECAlgorithmFormat {
++        ECDH((byte)18, true, false),
++        ECDH_WITH_PUBKEY((byte)18, true, true),
++        ECDSA((byte)19, false, false),
++        ECDSA_WITH_PUBKEY((byte)19, false, true);
++
++        private final byte mValue;
++        private final boolean mIsECDH;
++        private final boolean mWithPubkey;
++
++        ECAlgorithmFormat(final byte value, final boolean isECDH, final boolean withPubkey) {
++            mValue = value;
++            mIsECDH = isECDH;
++            mWithPubkey = withPubkey;
++        }
++
++        public static ECKeyFormat.ECAlgorithmFormat from(final byte bFirst, final byte bLast) {
++            for (ECKeyFormat.ECAlgorithmFormat format : values()) {
++                if (format.mValue == bFirst && ((bLast == (byte)0xff) == format.isWithPubkey())) {
++                    return format;
++                }
++            }
++            return null;
++        }
++
++        public final byte getValue() { return mValue; }
++        public final boolean isECDH() { return mIsECDH; }
++        public final boolean isWithPubkey() { return mWithPubkey; }
++    }
++
++    public void addToKeyring(SaveKeyringParcel keyring, int keyFlags) {
++        final X9ECParameters params = NISTNamedCurves.getByOID(mECCurveOID);
++        final ECCurve curve = params.getCurve();
++
++        SaveKeyringParcel.Algorithm algo = SaveKeyringParcel.Algorithm.ECDSA;
++        if (((keyFlags & KeyFlags.ENCRYPT_COMMS) == KeyFlags.ENCRYPT_COMMS)
++            || ((keyFlags & KeyFlags.ENCRYPT_STORAGE) == KeyFlags.ENCRYPT_STORAGE)) {
++            algo = SaveKeyringParcel.Algorithm.ECDH;
++        }
++
++        SaveKeyringParcel.Curve scurve;
++        if (mECCurveOID.equals(NISTNamedCurves.getOID("P-256"))) {
++            scurve = SaveKeyringParcel.Curve.NIST_P256;
++        } else if (mECCurveOID.equals(NISTNamedCurves.getOID("P-384"))) {
++            scurve = SaveKeyringParcel.Curve.NIST_P384;
++        } else if (mECCurveOID.equals(NISTNamedCurves.getOID("P-521"))) {
++            scurve = SaveKeyringParcel.Curve.NIST_P521;
++        } else {
++            throw new IllegalArgumentException("Unsupported curve " + mECCurveOID);
++        }
++
++        keyring.mAddSubKeys.add(new SaveKeyringParcel.SubkeyAdd(algo,
++                curve.getFieldSize(), scurve, keyFlags, 0L));
++    }
++}
+diff --git a/OpenKeychain/src/main/java/org/sufficientlysecure/keychain/securitytoken/KeyFormat.java b/OpenKeychain/src/main/java/org/sufficientlysecure/keychain/securitytoken/KeyFormat.java
+index 3b2e93f..4a81d46 100644
+--- a/OpenKeychain/src/main/java/org/sufficientlysecure/keychain/securitytoken/KeyFormat.java
++++ b/OpenKeychain/src/main/java/org/sufficientlysecure/keychain/securitytoken/KeyFormat.java
+@@ -17,71 +17,83 @@
+ 
+ package org.sufficientlysecure.keychain.securitytoken;
+ 
+-// 4.3.3.6 Algorithm Attributes
+-public class KeyFormat {
+-    private int mAlgorithmId;
+-    private int mModulusLength;
+-    private int mExponentLength;
+-    private AlgorithmFormat mAlgorithmFormat;
++import org.bouncycastle.asn1.ASN1ObjectIdentifier;
++import org.bouncycastle.asn1.nist.NISTNamedCurves;
++import org.bouncycastle.bcpg.PublicKeyAlgorithmTags;
++import org.sufficientlysecure.keychain.service.SaveKeyringParcel;
++import org.sufficientlysecure.keychain.ui.CreateSecurityTokenAlgorithmFragment;
+ 
+-    public KeyFormat(byte[] bytes) {
+-        mAlgorithmId = bytes[0];
+-        mModulusLength = bytes[1] << 8 | bytes[2];
+-        mExponentLength = bytes[3] << 8 | bytes[4];
+-        mAlgorithmFormat = AlgorithmFormat.from(bytes[5]);
++public abstract class KeyFormat {
+ 
+-        if (mAlgorithmId != 1) { // RSA
+-            throw new IllegalArgumentException("Unsupported Algorithm id " + mAlgorithmId);
+-        }
+-    }
++    public enum KeyFormatType {
++        RSAKeyFormatType,
++        ECKeyFormatType
++    };
+ 
+-    public int getAlgorithmId() {
+-        return mAlgorithmId;
+-    }
++    private final KeyFormatType mKeyFormatType;
+ 
+-    public int getModulusLength() {
+-        return mModulusLength;
++    public KeyFormat(final KeyFormatType keyFormatType) {
++        mKeyFormatType = keyFormatType;
+     }
+ 
+-    public int getExponentLength() {
+-        return mExponentLength;
++    public final KeyFormatType keyFormatType() {
++        return mKeyFormatType;
+     }
+ 
+-    public AlgorithmFormat getAlgorithmFormat() {
+-        return mAlgorithmFormat;
+-    }
+-
+-    public enum AlgorithmFormat {
+-        STANDARD(0, false, false),
+-        STANDARD_WITH_MODULUS(1, false, true),
+-        CRT(2, true, false),
+-        CRT_WITH_MODULUS(3, true, true);
++    public static KeyFormat fromBytes(byte[] bytes) {
++        switch (bytes[0]) {
++            case PublicKeyAlgorithmTags.RSA_GENERAL:
++                if (bytes.length < 6) {
++                    throw new IllegalArgumentException("Bad length for RSA attributes");
++                }
++                return new RSAKeyFormat(bytes[1] << 8 | bytes[2],
++                                        bytes[3] << 8 | bytes[4],
++                                        RSAKeyFormat.RSAAlgorithmFormat.from(bytes[5]));
+ 
+-        private int mValue;
+-        private boolean mIncludeModulus;
+-        private boolean mIncludeCrt;
++            case PublicKeyAlgorithmTags.ECDH:
++            case PublicKeyAlgorithmTags.ECDSA:
++                if (bytes.length < 2) {
++                    throw new IllegalArgumentException("Bad length for RSA attributes");
++                }
++                int len = bytes.length - 1;
++                if (bytes[bytes.length - 1] == (byte)0xff) {
++                    len -= 1;
++                }
++                final byte[] boid = new byte[2 + len];
++                boid[0] = (byte)0x06;
++                boid[1] = (byte)len;
++                System.arraycopy(bytes, 1, boid, 2, len);
++                final ASN1ObjectIdentifier oid = ASN1ObjectIdentifier.getInstance(boid);
++                return new ECKeyFormat(oid, ECKeyFormat.ECAlgorithmFormat.from(bytes[0], bytes[bytes.length - 1]));
+ 
+-        AlgorithmFormat(int value, boolean includeCrt, boolean includeModulus) {
+-            mValue = value;
+-            mIncludeModulus = includeModulus;
+-            mIncludeCrt = includeCrt;
++            default:
++                throw new IllegalArgumentException("Unsupported Algorithm id " + bytes[0]);
+         }
++    }
+ 
+-        public static AlgorithmFormat from(byte b) {
+-            for (AlgorithmFormat format : values()) {
+-                if (format.mValue == b) {
+-                    return format;
+-                }
+-            }
+-            return null;
+-        }
++    public static KeyFormat fromCreationKeyType(CreateSecurityTokenAlgorithmFragment.SupportedKeyType t, boolean forEncryption) {
++        final int elen = 17; //65537
++        final ECKeyFormat.ECAlgorithmFormat kf =
++                forEncryption ? ECKeyFormat.ECAlgorithmFormat.ECDH_WITH_PUBKEY : ECKeyFormat.ECAlgorithmFormat.ECDSA_WITH_PUBKEY;
+ 
+-        public boolean isIncludeModulus() {
+-            return mIncludeModulus;
++        switch (t) {
++            case RSA_2048:
++                return new RSAKeyFormat(2048, elen, RSAKeyFormat.RSAAlgorithmFormat.CRT_WITH_MODULUS);
++            case RSA_3072:
++                return new RSAKeyFormat(3072, elen, RSAKeyFormat.RSAAlgorithmFormat.CRT_WITH_MODULUS);
++            case RSA_4096:
++                return new RSAKeyFormat(4096, elen, RSAKeyFormat.RSAAlgorithmFormat.CRT_WITH_MODULUS);
++            case ECC_P256:
++                return new ECKeyFormat(NISTNamedCurves.getOID("P-256"), kf);
++            case ECC_P384:
++                return new ECKeyFormat(NISTNamedCurves.getOID("P-384"), kf);
++            case ECC_P521:
++                return new ECKeyFormat(NISTNamedCurves.getOID("P-521"), kf);
+         }
+ 
+-        public boolean isIncludeCrt() {
+-            return mIncludeCrt;
+-        }
++        throw new IllegalArgumentException("Unsupported Algorithm id " + t);
+     }
++
++    public abstract void addToKeyring(SaveKeyringParcel keyring, int keyFlags);
++
+ }
+diff --git a/OpenKeychain/src/main/java/org/sufficientlysecure/keychain/securitytoken/NfcTransport.java b/OpenKeychain/src/main/java/org/sufficientlysecure/keychain/securitytoken/NfcTransport.java
+index 1485754..49439d4 100644
+--- a/OpenKeychain/src/main/java/org/sufficientlysecure/keychain/securitytoken/NfcTransport.java
++++ b/OpenKeychain/src/main/java/org/sufficientlysecure/keychain/securitytoken/NfcTransport.java
+@@ -18,9 +18,12 @@
+ package org.sufficientlysecure.keychain.securitytoken;
+ 
+ import android.nfc.Tag;
++import android.util.Log;
+ 
+ import javax.smartcardio.CommandAPDU;
+ import javax.smartcardio.ResponseAPDU;
++
++import org.bouncycastle.util.encoders.Hex;
+ import org.sufficientlysecure.keychain.ui.base.BaseSecurityTokenActivity;
+ 
+ import java.io.IOException;
+diff --git a/OpenKeychain/src/main/java/org/sufficientlysecure/keychain/securitytoken/OpenPgpCapabilities.java b/OpenKeychain/src/main/java/org/sufficientlysecure/keychain/securitytoken/OpenPgpCapabilities.java
+index 7a87a0a..d28a746 100644
+--- a/OpenKeychain/src/main/java/org/sufficientlysecure/keychain/securitytoken/OpenPgpCapabilities.java
++++ b/OpenKeychain/src/main/java/org/sufficientlysecure/keychain/securitytoken/OpenPgpCapabilities.java
+@@ -36,15 +36,19 @@ public class OpenPgpCapabilities {
+     private boolean mAttriburesChangable;
+     private boolean mHasKeyImport;
+ 
+-    private byte mSMAlgo;
++    private int mSMAESKeySize;
+     private int mMaxCmdLen;
+     private int mMaxRspLen;
+ 
+     private Map<KeyType, KeyFormat> mKeyFormats;
+ 
+     public OpenPgpCapabilities(byte[] data) throws IOException {
+-        Iso7816TLV[] tlvs = Iso7816TLV.readList(data, true);
+         mKeyFormats = new HashMap<>();
++        updateWithData(data);
++    }
++
++    public void updateWithData(byte[] data) throws IOException {
++        Iso7816TLV[] tlvs = Iso7816TLV.readList(data, true);
+         if (tlvs.length == 1 && tlvs[0].mT == 0x6E) {
+             tlvs = ((Iso7816TLV.Iso7816CompositeTLV) tlvs[0]).mSubs;
+         }
+@@ -64,13 +68,13 @@ public class OpenPgpCapabilities {
+                     parseExtendedCaps(tlv.mV);
+                     break;
+                 case 0xC1:
+-                    mKeyFormats.put(KeyType.SIGN, new KeyFormat(tlv.mV));
++                    mKeyFormats.put(KeyType.SIGN, KeyFormat.fromBytes(tlv.mV));
+                     break;
+                 case 0xC2:
+-                    mKeyFormats.put(KeyType.ENCRYPT, new KeyFormat(tlv.mV));
++                    mKeyFormats.put(KeyType.ENCRYPT, KeyFormat.fromBytes(tlv.mV));
+                     break;
+                 case 0xC3:
+-                    mKeyFormats.put(KeyType.AUTH, new KeyFormat(tlv.mV));
++                    mKeyFormats.put(KeyType.AUTH, KeyFormat.fromBytes(tlv.mV));
+                     break;
+                 case 0xC4:
+                     mPw1ValidForMultipleSignatures = tlv.mV[0] == 1;
+@@ -86,13 +90,13 @@ public class OpenPgpCapabilities {
+                     parseExtendedCaps(tlv.mV);
+                     break;
+                 case 0xC1:
+-                    mKeyFormats.put(KeyType.SIGN, new KeyFormat(tlv.mV));
++                    mKeyFormats.put(KeyType.SIGN, KeyFormat.fromBytes(tlv.mV));
+                     break;
+                 case 0xC2:
+-                    mKeyFormats.put(KeyType.ENCRYPT, new KeyFormat(tlv.mV));
++                    mKeyFormats.put(KeyType.ENCRYPT, KeyFormat.fromBytes(tlv.mV));
+                     break;
+                 case 0xC3:
+-                    mKeyFormats.put(KeyType.AUTH, new KeyFormat(tlv.mV));
++                    mKeyFormats.put(KeyType.AUTH, KeyFormat.fromBytes(tlv.mV));
+                     break;
+                 case 0xC4:
+                     mPw1ValidForMultipleSignatures = tlv.mV[0] == 1;
+@@ -106,7 +110,7 @@ public class OpenPgpCapabilities {
+         mHasKeyImport = (v[0] & MASK_KEY_IMPORT) != 0;
+         mAttriburesChangable =(v[0] & MASK_ATTRIBUTES_CHANGABLE) != 0;
+ 
+-        mSMAlgo = v[1];
++        mSMAESKeySize = (v[1] == 1) ? 16 : 32;
+ 
+         mMaxCmdLen = (v[6] << 8) + v[7];
+         mMaxRspLen = (v[8] << 8) + v[9];
+@@ -128,7 +132,7 @@ public class OpenPgpCapabilities {
+         return mHasSM;
+     }
+ 
+-    public boolean isAttriburesChangable() {
++    public boolean isAttributesChangable() {
+         return mAttriburesChangable;
+     }
+ 
+@@ -136,8 +140,8 @@ public class OpenPgpCapabilities {
+         return mHasKeyImport;
+     }
+ 
+-    public byte getSMAlgo() {
+-        return mSMAlgo;
++    public int getSMAESKeySize() {
++        return mSMAESKeySize;
+     }
+ 
+     public int getMaxCmdLen() {
+diff --git a/OpenKeychain/src/main/java/org/sufficientlysecure/keychain/securitytoken/RSAKeyFormat.java b/OpenKeychain/src/main/java/org/sufficientlysecure/keychain/securitytoken/RSAKeyFormat.java
+new file mode 100644
+index 0000000..27b4274
+--- /dev/null
++++ b/OpenKeychain/src/main/java/org/sufficientlysecure/keychain/securitytoken/RSAKeyFormat.java
+@@ -0,0 +1,89 @@
++/*
++ * Copyright (C) 2016 Nikita Mikhailov <nikita.s.mikhailov@gmail.com>
++ *
++ * This program is free software: you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation, either version 3 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
++ */
++
++package org.sufficientlysecure.keychain.securitytoken;
++
++import org.sufficientlysecure.keychain.service.SaveKeyringParcel;
++
++// 4.3.3.6 Algorithm Attributes
++public class RSAKeyFormat extends KeyFormat {
++    private int mModulusLength;
++    private int mExponentLength;
++    private RSAAlgorithmFormat mRSAAlgorithmFormat;
++
++    public RSAKeyFormat(int modulusLength,
++                        int exponentLength,
++                        RSAAlgorithmFormat rsaAlgorithmFormat) {
++        super(KeyFormatType.RSAKeyFormatType);
++        mModulusLength = modulusLength;
++        mExponentLength = exponentLength;
++        mRSAAlgorithmFormat = rsaAlgorithmFormat;
++    }
++
++    public int getModulusLength() {
++        return mModulusLength;
++    }
++
++    public int getExponentLength() {
++        return mExponentLength;
++    }
++
++    public RSAAlgorithmFormat getAlgorithmFormat() {
++        return mRSAAlgorithmFormat;
++    }
++
++    public enum RSAAlgorithmFormat {
++        STANDARD((byte)0, false, false),
++        STANDARD_WITH_MODULUS((byte)1, false, true),
++        CRT((byte)2, true, false),
++        CRT_WITH_MODULUS((byte)3, true, true);
++
++        private byte mValue;
++        private boolean mIncludeModulus;
++        private boolean mIncludeCrt;
++
++        RSAAlgorithmFormat(byte value, boolean includeCrt, boolean includeModulus) {
++            mValue = value;
++            mIncludeModulus = includeModulus;
++            mIncludeCrt = includeCrt;
++        }
++
++        public static RSAAlgorithmFormat from(byte b) {
++            for (RSAAlgorithmFormat format : values()) {
++                if (format.mValue == b) {
++                    return format;
++                }
++            }
++            return null;
++        }
++
++        public byte getValue() { return mValue; }
++
++        public boolean isIncludeModulus() {
++            return mIncludeModulus;
++        }
++
++        public boolean isIncludeCrt() {
++            return mIncludeCrt;
++        }
++    }
++
++    public void addToKeyring(SaveKeyringParcel keyring, int keyFlags) {
++        keyring.mAddSubKeys.add(new SaveKeyringParcel.SubkeyAdd(SaveKeyringParcel.Algorithm.RSA,
++                mModulusLength, null, keyFlags, 0L));
++    }
++}
+diff --git a/OpenKeychain/src/main/java/org/sufficientlysecure/keychain/securitytoken/SCP11bSecureMessaging.java b/OpenKeychain/src/main/java/org/sufficientlysecure/keychain/securitytoken/SCP11bSecureMessaging.java
+new file mode 100644
+index 0000000..6d28749
+--- /dev/null
++++ b/OpenKeychain/src/main/java/org/sufficientlysecure/keychain/securitytoken/SCP11bSecureMessaging.java
+@@ -0,0 +1,714 @@
++package org.sufficientlysecure.keychain.securitytoken;
++
++import android.content.Context;
++import android.content.SharedPreferences;
++import android.support.annotation.NonNull;
++import android.util.Log;
++
++import org.bouncycastle.asn1.nist.NISTNamedCurves;
++import org.bouncycastle.asn1.x9.ECNamedCurveTable;
++import org.bouncycastle.asn1.x9.X9ECParameters;
++import org.bouncycastle.math.ec.ECCurve;
++import org.bouncycastle.math.ec.ECPoint;
++import org.bouncycastle.util.Arrays;
++import org.bouncycastle.util.Iterable;
++import org.bouncycastle.util.encoders.Hex;
++import org.sufficientlysecure.keychain.ui.SettingsSmartPGPAuthoritiesActivity;
++import org.sufficientlysecure.keychain.ui.util.Notify;
++import org.sufficientlysecure.keychain.util.Iso7816TLV;
++import org.sufficientlysecure.keychain.util.Preferences;
++import org.sufficientlysecure.keychain.util.SecurityTokenUtils;
++
++import java.io.ByteArrayInputStream;
++import java.io.ByteArrayOutputStream;
++import java.io.File;
++import java.io.FileInputStream;
++import java.io.FileNotFoundException;
++import java.io.IOException;
++import java.security.AlgorithmParameters;
++import java.security.InvalidAlgorithmParameterException;
++import java.security.InvalidKeyException;
++import java.security.KeyFactory;
++import java.security.KeyPair;
++import java.security.KeyPairGenerator;
++import java.security.KeyStore;
++import java.security.KeyStoreException;
++import java.security.MessageDigest;
++import java.security.NoSuchAlgorithmException;
++import java.security.NoSuchProviderException;
++import java.security.PublicKey;
++import java.security.SecureRandom;
++import java.security.SignatureException;
++import java.security.cert.CertPathBuilder;
++import java.security.cert.CertPathBuilderException;
++import java.security.cert.CertStore;
++import java.security.cert.Certificate;
++import java.security.cert.CertificateException;
++import java.security.cert.CertificateFactory;
++import java.security.cert.CollectionCertStoreParameters;
++import java.security.cert.PKIXBuilderParameters;
++import java.security.cert.PKIXCertPathBuilderResult;
++import java.security.cert.TrustAnchor;
++import java.security.cert.X509CertSelector;
++import java.security.cert.X509Certificate;
++import java.security.interfaces.ECPrivateKey;
++import java.security.interfaces.ECPublicKey;
++import java.security.spec.ECGenParameterSpec;
++import java.security.spec.ECParameterSpec;
++import java.security.spec.InvalidKeySpecException;
++import java.security.spec.InvalidParameterSpecException;
++import java.util.ArrayList;
++import java.util.Enumeration;
++import java.util.HashSet;
++import java.util.Iterator;
++import java.util.Set;
++
++import javax.crypto.BadPaddingException;
++import javax.crypto.Cipher;
++import javax.crypto.IllegalBlockSizeException;
++import javax.crypto.KeyAgreement;
++import javax.crypto.Mac;
++import javax.crypto.NoSuchPaddingException;
++import javax.crypto.SecretKey;
++import javax.crypto.spec.IvParameterSpec;
++import javax.crypto.spec.SecretKeySpec;
++import javax.net.ssl.TrustManagerFactory;
++import javax.smartcardio.CommandAPDU;
++import javax.smartcardio.ResponseAPDU;
++
++
++class SCP11bSecureMessaging implements SecureMessaging {
++
++    private static final byte OPENPGP_SECURE_MESSAGING_CLA_MASK = (byte)0x04;
++    private static final byte[] OPENPGP_SECURE_MESSAGING_KEY_CRT = new byte[] { (byte)0xA6, (byte)0 };
++    private static final byte OPENPGP_SECURE_MESSAGING_KEY_ATTRIBUTES_TAG = (byte)0xD4;
++
++    private static final int AES_BLOCK_SIZE = 128 / 8;
++
++    private static final int SCP11_MAC_LENGTH = AES_BLOCK_SIZE / 2;
++
++    private static final String SCP11_SYMMETRIC_ALGO = "AES";
++    private static final String SCP11_CIPHER_ALGO = "AES/CBC/NoPadding";
++    private static final String SCP11_MAC_ALGO = "AESCMAC";
++
++    private static final String SCP11B_KEY_AGREEMENT_ALGO = "ECDH";
++    private static final String SCP11B_KEY_AGREEMENT_KEY_TYPE = "ECDH";
++    private static final String SCP11B_KEY_AGREEMENT_KEY_ALGO = "EC";
++    private static final String SCP11B_KEY_DERIVATION_ALGO = "SHA256";
++
++    private static final String CERTIFICATE_FORMAT = "X.509";
++
++    private static final String PROVIDER = "BC";
++
++    private static SecureRandom srand;
++    private static KeyFactory ecdhFactory;
++    private static CertificateFactory certFactory;
++
++    private SecretKey mSEnc;
++    private SecretKey mSMac;
++    private SecretKey mSRMac;
++
++    private short mEncryptionCounter;
++
++    private byte[] mMacChaining;
++
++    private SCP11bSecureMessaging() {
++    }
++
++    private void setKeys(@NonNull final byte[] sEnc,
++                         @NonNull final byte[] sMac,
++                         @NonNull final byte[] sRmac,
++                         @NonNull final byte[] receipt)
++            throws SecureMessagingException {
++
++        if ((sEnc.length != sMac.length)
++                || (sEnc.length != sRmac.length)
++                || (receipt.length != AES_BLOCK_SIZE)) {
++            throw new SecureMessagingException("incoherent SCP11b key set");
++        }
++
++        mSEnc = new SecretKeySpec(sEnc, SCP11_SYMMETRIC_ALGO);
++        mSMac = new SecretKeySpec(sMac, SCP11_SYMMETRIC_ALGO);
++        mSRMac = new SecretKeySpec(sRmac, SCP11_SYMMETRIC_ALGO);
++        mEncryptionCounter = 0;
++        mMacChaining = receipt;
++    }
++
++    @Override
++    public void clearSession() {
++        mSEnc = null;
++        mSMac = null;
++        mSRMac = null;
++        mEncryptionCounter = 0;
++        mMacChaining = null;
++    }
++
++    @Override
++    public boolean isEstablished() {
++        return (mSEnc != null)
++                && (mSMac != null)
++                && (mSRMac != null)
++                && (mMacChaining != null);
++    }
++
++    private static final ECParameterSpec getAlgorithmParameterSpec(final ECKeyFormat kf)
++            throws NoSuchProviderException, NoSuchAlgorithmException, InvalidParameterSpecException {
++        final AlgorithmParameters algo_params = AlgorithmParameters.getInstance(SCP11B_KEY_AGREEMENT_KEY_ALGO, PROVIDER);
++
++        algo_params.init(new ECGenParameterSpec(ECNamedCurveTable.getName(kf.getCurveOID())));
++
++        return algo_params.getParameterSpec(ECParameterSpec.class);
++    }
++
++
++    private static ECPublicKey newECDHPublicKey(final ECKeyFormat kf, byte[] data)
++            throws InvalidKeySpecException, NoSuchAlgorithmException,
++                   InvalidParameterSpecException, NoSuchProviderException {
++        if (ecdhFactory == null) {
++            ecdhFactory = KeyFactory.getInstance(SCP11B_KEY_AGREEMENT_KEY_TYPE, PROVIDER);
++        }
++
++        final X9ECParameters params = NISTNamedCurves.getByOID(kf.getCurveOID());
++        if (params == null) {
++            throw new InvalidParameterSpecException("unsupported curve");
++        }
++
++        final ECCurve curve = params.getCurve();
++        final ECPoint p = curve.decodePoint(data);
++        if (!p.isValid()) {
++            throw new InvalidKeySpecException("invalid EC point");
++        }
++
++        final java.security.spec.ECPublicKeySpec pk = new java.security.spec.ECPublicKeySpec(
++                new java.security.spec.ECPoint(p.getAffineXCoord().toBigInteger(), p.getAffineYCoord().toBigInteger()),
++                getAlgorithmParameterSpec(kf));
++
++        return (ECPublicKey)(ecdhFactory.generatePublic(pk));
++    }
++
++    private static KeyPair generateECDHKeyPair(final ECKeyFormat kf)
++            throws NoSuchProviderException, NoSuchAlgorithmException,
++                   InvalidParameterSpecException, InvalidAlgorithmParameterException {
++        final KeyPairGenerator gen = KeyPairGenerator.getInstance(SCP11B_KEY_AGREEMENT_KEY_ALGO, PROVIDER);
++
++        if (srand == null) {
++            srand = new SecureRandom();
++        }
++
++        gen.initialize(getAlgorithmParameterSpec(kf), srand);
++
++        return gen.generateKeyPair();
++    }
++
++    private static ECPublicKey verifyCertificate(final Context ctx,
++                                                 final ECKeyFormat kf,
++                                                 final byte[] data) throws IOException {
++        try {
++
++            if (certFactory == null) {
++                certFactory = CertificateFactory.getInstance(CERTIFICATE_FORMAT, PROVIDER);
++            }
++
++            final ECParameterSpec kfParams = getAlgorithmParameterSpec(kf);
++
++            final Certificate _cardCert = certFactory.generateCertificate(new ByteArrayInputStream(data));
++            if (!(_cardCert instanceof X509Certificate)) {
++                throw new IOException("invalid card certificate");
++            }
++            final X509Certificate cardCert = (X509Certificate) _cardCert;
++
++            final PublicKey _cardPk = cardCert.getPublicKey();
++            if (!(_cardPk instanceof ECPublicKey)) {
++                throw new IOException("invalid card public key");
++            }
++            final ECPublicKey cardPk = (ECPublicKey) _cardPk;
++            final ECParameterSpec cardPkParams = cardPk.getParams();
++
++            if (!kfParams.getCurve().equals(cardPkParams.getCurve())) {
++                throw new IOException("incoherent card certificate/public key format");
++            }
++
++            final KeyStore ks = SettingsSmartPGPAuthoritiesActivity.readKeystore(ctx);
++
++            if (ks == null) {
++                throw new KeyStoreException("no keystore found");
++            }
++
++            final X509CertSelector targetConstraints = new X509CertSelector();
++            targetConstraints.setCertificate(cardCert);
++
++            final ArrayList al = new ArrayList();
++            al.add(cardCert);
++            final CollectionCertStoreParameters certStoreParams = new CollectionCertStoreParameters(al);
++            final CertStore certStore = CertStore.getInstance("Collection", certStoreParams, PROVIDER);
++
++            final PKIXBuilderParameters pkixParams = new PKIXBuilderParameters(ks, targetConstraints);
++            pkixParams.setRevocationEnabled(false);
++            pkixParams.addCertStore(certStore);
++
++            final CertPathBuilder builder = CertPathBuilder.getInstance(CertPathBuilder.getDefaultType(), PROVIDER);
++
++            final PKIXCertPathBuilderResult result =
++                    (PKIXCertPathBuilderResult) builder.build(pkixParams);
++
++            return cardPk;
++
++        } catch (CertificateException e) {
++            throw new IOException("invalid card certificate (" + e.getMessage() + ")");
++        } catch (NoSuchAlgorithmException e) {
++            throw new IOException("unknown algorithm (" + e.getMessage() + ")");
++        } catch (InvalidParameterSpecException e) {
++            throw new IOException("invalid card key parameters (" + e.getMessage() + ")");
++        } catch (IllegalArgumentException e) {
++            e.printStackTrace();
++            throw new IOException("illegal argument (" + e.getMessage() + ")");
++        } catch (NoSuchProviderException e) {
++            throw new IOException("unavailable crypto (" + e.getMessage() + ")");
++        } catch (KeyStoreException e) {
++            throw new IOException("failed to build keystore (" + e.getMessage() + ")");
++        } catch (InvalidAlgorithmParameterException e) {
++            throw new IOException("invalid algorithm parameter (" + e.getMessage() + ")");
++        } catch (CertPathBuilderException e) {
++            throw new IOException("invalid certificate path (" + e.getMessage() + ")");
++        }
++    }
++
++
++    public static void establish(final SecurityTokenHelper t, final Context ctx)
++            throws SecureMessagingException, IOException {
++
++        final int keySize = t.getOpenPgpCapabilities().getSMAESKeySize();
++
++        t.clearSecureMessaging();
++
++        if ((keySize != 16)
++                && (keySize != 32)) {
++            throw  new SecureMessagingException("invalid key size");
++        }
++
++        CommandAPDU cmd;
++        ResponseAPDU resp;
++        Iso7816TLV[] tlvs;
++
++        // retrieving key algorithm
++        cmd = new CommandAPDU(0, (byte)0xCA, (byte)0x00,
++                OPENPGP_SECURE_MESSAGING_KEY_ATTRIBUTES_TAG, SecurityTokenHelper.MAX_APDU_NE_EXT);
++        resp = t.communicate(cmd);
++        if (resp.getSW() != SecurityTokenHelper.APDU_SW_SUCCESS) {
++            throw new SecureMessagingException("failed to retrieve secure messaging key attributes");
++        }
++        tlvs = Iso7816TLV.readList(resp.getData(), true);
++        if ((tlvs == null)
++            || (tlvs.length != 1)
++            || ((byte)tlvs[0].mT != OPENPGP_SECURE_MESSAGING_KEY_ATTRIBUTES_TAG)) {
++            throw new SecureMessagingException("invalid format of secure messaging key attributes");
++        }
++
++        final KeyFormat kf = KeyFormat.fromBytes(tlvs[0].mV);
++
++        if (kf.keyFormatType() != KeyFormat.KeyFormatType.ECKeyFormatType) {
++            throw new SecureMessagingException("invalid format of secure messaging key");
++        }
++
++        final ECKeyFormat eckf = (ECKeyFormat)kf;
++
++        if (eckf.getCurveOID() == null) {
++            throw new SecureMessagingException("unsupported curve");
++        }
++
++        try {
++            ECPublicKey pkcard = null;
++
++            final Preferences prefs = Preferences.getPreferences(ctx);
++
++            if (prefs != null && prefs.getExperimentalSmartPGPAuthoritiesEnable()) {
++                // retrieving certificate
++                cmd = new CommandAPDU(0, (byte) 0xA5, (byte) 0x03, (byte) 0x04,
++                        new byte[]{(byte) 0x60, (byte) 0x04, (byte) 0x5C, (byte) 0x02, (byte) 0x7F, (byte) 0x21});
++                resp = t.communicate(cmd);
++                if (resp.getSW() != SecurityTokenHelper.APDU_SW_SUCCESS) {
++                    throw new SecureMessagingException("failed to select secure messaging certificate");
++                }
++                cmd = new CommandAPDU(0, (byte) 0xCA, (byte) 0x7F, (byte) 0x21, SecurityTokenHelper.MAX_APDU_NE_EXT);
++                resp = t.communicate(cmd);
++                if (resp.getSW() != SecurityTokenHelper.APDU_SW_SUCCESS) {
++                    throw new SecureMessagingException("failed to retrieve secure messaging certificate");
++                }
++
++                pkcard = verifyCertificate(ctx, eckf, resp.getData());
++
++            } else {
++                // retrieving public key
++                cmd = new CommandAPDU(0, (byte) 0x47, (byte) 0x81, (byte) 0x00,
++                        OPENPGP_SECURE_MESSAGING_KEY_CRT, SecurityTokenHelper.MAX_APDU_NE_EXT);
++                resp = t.communicate(cmd);
++                if (resp.getSW() != SecurityTokenHelper.APDU_SW_SUCCESS) {
++                    throw new SecureMessagingException("failed to retrieve secure messaging public key");
++                }
++                tlvs = Iso7816TLV.readList(resp.getData(), true);
++                if ((tlvs == null)
++                        || (tlvs.length != 1)
++                        || ((short)tlvs[0].mT != (short)0x7f49)) {
++                    throw new SecureMessagingException("invalid format of secure messaging key");
++                }
++                tlvs = Iso7816TLV.readList(tlvs[0].mV, true);
++                if ((tlvs == null)
++                        || (tlvs.length != 1)
++                        || ((byte)tlvs[0].mT != (byte)0x86)) {
++                    throw new SecureMessagingException("invalid format of secure messaging key");
++                }
++
++                pkcard = newECDHPublicKey(eckf, tlvs[0].mV);
++            }
++
++            if (pkcard == null) {
++                throw new SecureMessagingException("No key in token for secure messaging");
++            }
++
++            final KeyPair ekoce = generateECDHKeyPair(eckf);
++            final ECPublicKey epkoce = (ECPublicKey)ekoce.getPublic();
++            final ECPrivateKey eskoce = (ECPrivateKey)ekoce.getPrivate();
++
++            final byte[] crt_template = new byte[] {
++                    (byte)0xA6, (byte)0x0D,
++                    (byte)0x90, (byte)0x02, (byte)0x11, (byte)0x00,
++                    (byte)0x95, (byte)0x01, (byte)0x3C,
++                    (byte)0x80, (byte)0x01, (byte)0x88,
++                    (byte)0x81, (byte)0x01, (byte)keySize,
++                    (byte)0x5F, (byte)0x49 };
++
++            int csize = (int)Math.ceil(epkoce.getParams().getCurve().getField().getFieldSize() / 8.0);
++
++            ByteArrayOutputStream pkout = new ByteArrayOutputStream(), bout = new ByteArrayOutputStream();
++
++            pkout.write((byte)0x04);
++            SecurityTokenUtils.writeBits(pkout, epkoce.getW().getAffineX(), csize);
++            SecurityTokenUtils.writeBits(pkout, epkoce.getW().getAffineY(), csize);
++
++            bout.write(crt_template);
++            bout.write(SecurityTokenUtils.encodeLength(pkout.size()));
++            pkout.writeTo(bout);
++            pkout = bout;
++
++            // internal authenticate
++            cmd = new CommandAPDU(0, (byte)0x88, (byte)0x01, (byte)0x0, pkout.toByteArray(),
++                    SecurityTokenHelper.MAX_APDU_NE_EXT);
++            resp = t.communicate(cmd);
++            if (resp.getSW() != SecurityTokenHelper.APDU_SW_SUCCESS) {
++                throw new SecureMessagingException("failed to initiate internal authenticate");
++            }
++
++            tlvs = Iso7816TLV.readList(resp.getData(), true);
++            if ((tlvs == null)
++                    || (tlvs.length != 2)
++                    || (tlvs[0].mT == tlvs[1].mT)) {
++                throw new SecureMessagingException("invalid internal authenticate response");
++            }
++
++            byte[] receipt = null;
++            ECPublicKey epkcard = null;
++
++            for (int i = 0; i < tlvs.length; ++i) {
++                switch (tlvs[i].mT) {
++                    case 0x86:
++                        if (tlvs[i].mL != AES_BLOCK_SIZE) {
++                            throw new SecureMessagingException("invalid size for receipt");
++                        }
++                        receipt = tlvs[i].mV;
++                        break;
++
++                    case 0x5F49:
++                        epkcard = newECDHPublicKey(eckf, tlvs[i].mV);
++                        break;
++
++                    default:
++                        throw new SecureMessagingException("unexpected data in internal authenticate response");
++                }
++            }
++
++            final KeyAgreement ecdhKa = KeyAgreement.getInstance(SCP11B_KEY_AGREEMENT_ALGO, PROVIDER);
++            bout = new ByteArrayOutputStream();
++
++            //compute ShSe
++            ecdhKa.init(eskoce);
++            ecdhKa.doPhase(epkcard, true);
++            bout.write(ecdhKa.generateSecret());
++
++            //compute ShSs
++            ecdhKa.init(eskoce);
++            ecdhKa.doPhase(pkcard, true);
++            bout.write(ecdhKa.generateSecret());
++
++            csize = bout.size() + 3;
++
++            bout.write(new byte[] {
++                        (byte)0, (byte)0, (byte)0, (byte)0,
++                        crt_template[8], crt_template[11],
++                        (byte)keySize });
++
++            byte[] shs =  bout.toByteArray();
++
++            //key derivation
++            final MessageDigest h = MessageDigest.getInstance(SCP11B_KEY_DERIVATION_ALGO, PROVIDER);
++
++            bout = new ByteArrayOutputStream();
++            while (bout.size() < 4 * keySize) {
++                ++shs[csize];
++                bout.write(h.digest(shs));
++            }
++
++            shs =  bout.toByteArray();
++
++            final byte[] rkey = Arrays.copyOfRange(shs, 0, keySize);
++            final byte[] sEnc = Arrays.copyOfRange(shs, keySize, 2 * keySize);
++            final byte[] sMac = Arrays.copyOfRange(shs, 2 * keySize, 3 * keySize);
++            final byte[] sRmac = Arrays.copyOfRange(shs, 3 * keySize, 4 * keySize);
++
++            //receipt computation
++            final Mac mac = Mac.getInstance(SCP11_MAC_ALGO, PROVIDER);
++
++            mac.init(new SecretKeySpec(rkey, SCP11_SYMMETRIC_ALGO));
++
++            shs = resp.getData();
++            mac.update(pkout.toByteArray());
++            mac.update(shs, 0, shs.length - 2 - AES_BLOCK_SIZE);
++            shs = mac.doFinal();
++
++            for(int i = 0; i < AES_BLOCK_SIZE; ++i) {
++                if (shs[i] != receipt[i]) {
++                    throw new SecureMessagingException("corrupted receipt!");
++                }
++            }
++
++            final SCP11bSecureMessaging sm = new SCP11bSecureMessaging();
++            sm.setKeys(sEnc, sMac, sRmac, receipt);
++
++            t.setSecureMessaging(sm);
++
++        } catch (InvalidKeySpecException e) {
++            throw new SecureMessagingException("invalid key specification : " + e.getMessage());
++        } catch (NoSuchAlgorithmException e) {
++            throw new SecureMessagingException("unknown EC key algorithm : " + e.getMessage());
++        } catch (InvalidParameterSpecException e) {
++            throw new SecureMessagingException("invalid ECDH parameters : " + e.getMessage());
++        } catch (NoSuchProviderException e) {
++            throw  new SecureMessagingException("unknown provider " + PROVIDER);
++        } catch (InvalidAlgorithmParameterException e) {
++            throw  new SecureMessagingException("invalid algorithm parameters : " + e.getMessage());
++        } catch (InvalidKeyException e) {
++            throw  new SecureMessagingException("invalid key : " + e.getMessage());
++        } catch (IllegalArgumentException e) {
++            throw new SecureMessagingException("illegal argument (" + e.getMessage() + ")");
++        }
++    }
++
++
++
++    @Override
++    public CommandAPDU encryptAndSign(CommandAPDU apdu)
++            throws SecureMessagingException {
++
++        if (!isEstablished()) {
++            throw new SecureMessagingException("not established");
++        }
++
++        ++mEncryptionCounter;
++        if(mEncryptionCounter <= 0) {
++            throw new SecureMessagingException("exhausted encryption counter");
++        }
++
++        try {
++
++            byte[] data = apdu.getData();
++
++            if (data.length > 0) {
++                final Cipher cipher = Cipher.getInstance(SCP11_CIPHER_ALGO);
++
++                byte[] iv = new byte[AES_BLOCK_SIZE];
++                Arrays.fill(iv, (byte)0);
++                cipher.init(Cipher.ENCRYPT_MODE, mSEnc, new IvParameterSpec(iv));
++
++                iv[AES_BLOCK_SIZE - 2] = (byte)((mEncryptionCounter >> 8) & 0xff);
++                iv[AES_BLOCK_SIZE - 1] = (byte)(mEncryptionCounter & 0xff);
++
++                iv = cipher.doFinal(iv);
++
++                cipher.init(Cipher.ENCRYPT_MODE, mSEnc, new IvParameterSpec(iv));
++
++                final byte[] pdata = new byte[data.length + AES_BLOCK_SIZE - (data.length % AES_BLOCK_SIZE)];
++                System.arraycopy(data, 0, pdata, 0, data.length);
++                pdata[data.length] = (byte)0x80;
++
++                Arrays.fill(data, (byte)0);
++
++                data = cipher.doFinal(pdata);
++
++                Arrays.fill(pdata, (byte)0);
++                Arrays.fill(iv, (byte)0);
++            }
++
++
++            final int lcc = data.length + SCP11_MAC_LENGTH;
++
++            final byte[] odata = new byte[4 + 3 + lcc + 3];
++            int ooff = 0;
++
++            odata[ooff++] = (byte) (((byte) apdu.getCLA()) | OPENPGP_SECURE_MESSAGING_CLA_MASK);
++            odata[ooff++] = (byte) apdu.getINS();
++            odata[ooff++] = (byte) apdu.getP1();
++            odata[ooff++] = (byte) apdu.getP2();
++
++            if (lcc > 0xff) {
++                odata[ooff++] = (byte) 0;
++                odata[ooff++] = (byte) ((lcc >> 8) & 0xff);
++            }
++            odata[ooff++] = (byte) (lcc & 0xff);
++
++            System.arraycopy(data, 0, odata, ooff, data.length);
++            ooff += data.length;
++
++            Arrays.fill(data, (byte)0);
++
++            final Mac mac = Mac.getInstance(SCP11_MAC_ALGO, PROVIDER);
++            mac.init(mSMac);
++            mac.update(mMacChaining);
++            mac.update(odata, 0, ooff);
++            mMacChaining = mac.doFinal();
++
++            System.arraycopy(mMacChaining, 0, odata, ooff, SCP11_MAC_LENGTH);
++            ooff += SCP11_MAC_LENGTH;
++
++            if (lcc > 0xff) {
++                odata[ooff++] = (byte) 0;
++            }
++            odata[ooff++] = (byte) 0;
++
++            apdu = new CommandAPDU(odata, 0, ooff);
++
++            Arrays.fill(odata, (byte)0);
++
++            return apdu;
++
++        } catch (NoSuchAlgorithmException e) {
++            throw new SecureMessagingException("unavailable algorithm : " + e.getMessage());
++        } catch (NoSuchProviderException e) {
++            throw new SecureMessagingException("unavailable provider : " + e.getMessage());
++        } catch (NoSuchPaddingException e) {
++            throw new SecureMessagingException("unavailable padding algorithm : " + e.getMessage());
++        } catch (InvalidKeyException e) {
++            throw new SecureMessagingException("invalid key : " + e.getMessage());
++        } catch (InvalidAlgorithmParameterException e) {
++            throw new SecureMessagingException("invalid IV : " + e.getMessage());
++        } catch (BadPaddingException e) {
++            throw new SecureMessagingException("invalid IV : " + e.getMessage());
++        } catch (IllegalBlockSizeException e) {
++            throw new SecureMessagingException("invalid block size : " + e.getMessage());
++        }
++    }
++
++
++    @Override
++    public ResponseAPDU verifyAndDecrypt(ResponseAPDU apdu)
++            throws SecureMessagingException {
++
++        if (!isEstablished()) {
++            throw new SecureMessagingException("not established");
++        }
++
++        byte[] data = apdu.getData();
++
++        if ((data.length == 0) &&
++                (apdu.getSW() != 0x9000) &&
++                (apdu.getSW1() != 0x62) &&
++                (apdu.getSW1() != 0x63)) {
++            return apdu;
++        }
++
++        if (data.length < SCP11_MAC_LENGTH) {
++            throw new SecureMessagingException("missing or incomplete MAC in response");
++        }
++
++        try {
++
++            final Mac mac = Mac.getInstance(SCP11_MAC_ALGO, PROVIDER);
++            mac.init(mSRMac);
++
++            mac.update(mMacChaining);
++            if ((data.length - SCP11_MAC_LENGTH) > 0) {
++                mac.update(data, 0, data.length - SCP11_MAC_LENGTH);
++            }
++            mac.update((byte) apdu.getSW1());
++            mac.update((byte) apdu.getSW2());
++
++            final byte[] sig = mac.doFinal();
++
++            for (int i = 0; i < SCP11_MAC_LENGTH; ++i) {
++                if ((i >= sig.length)
++                        || (sig[i] != data[data.length - SCP11_MAC_LENGTH + i])) {
++                    throw new SecureMessagingException("corrupted integrity");
++                }
++            }
++
++            if (((data.length - SCP11_MAC_LENGTH) % AES_BLOCK_SIZE) != 0) {
++                throw new SecureMessagingException("invalid encrypted data size");
++            }
++
++            if (data.length > SCP11_MAC_LENGTH) {
++                final Cipher cipher = Cipher.getInstance(SCP11_CIPHER_ALGO);
++
++                byte[] iv = new byte[AES_BLOCK_SIZE];
++                Arrays.fill(iv,(byte)0);
++                cipher.init(Cipher.ENCRYPT_MODE, mSEnc, new IvParameterSpec(iv));
++
++                iv[0] = (byte) 0x80;
++                iv[AES_BLOCK_SIZE - 2] = (byte) ((mEncryptionCounter >> 8) & 0xff);
++                iv[AES_BLOCK_SIZE - 1] = (byte) (mEncryptionCounter & 0xff);
++
++                iv = cipher.doFinal(iv);
++
++                cipher.init(Cipher.DECRYPT_MODE, mSEnc, new IvParameterSpec(iv));
++                data = cipher.doFinal(data, 0, data.length - SCP11_MAC_LENGTH);
++
++                int i = data.length - 1;
++                while ((0 < i) && (data[i] == (byte) 0)) --i;
++
++                if ((i <= 0) || (data[i] != (byte) 0x80)) {
++                    throw new SecureMessagingException("invalid data padding after decryption");
++                }
++
++                final byte[] datasw = new byte[i + 2];
++                System.arraycopy(data, 0, datasw, 0, i);
++                datasw[datasw.length - 2] = (byte) apdu.getSW1();
++                datasw[datasw.length - 1] = (byte) apdu.getSW2();
++
++                Arrays.fill(data, (byte) 0);
++
++                data = datasw;
++            } else {
++                data = new byte[2];
++                data[0] = (byte) apdu.getSW1();
++                data[1] = (byte) apdu.getSW2();
++            }
++
++            apdu = new ResponseAPDU(data);
++
++            return apdu;
++
++        } catch (NoSuchAlgorithmException e) {
++            throw new SecureMessagingException("unavailable algorithm : " + e.getMessage());
++        } catch (NoSuchProviderException e) {
++            throw new SecureMessagingException("unknown provider : " + e.getMessage());
++        } catch (NoSuchPaddingException e) {
++            throw new SecureMessagingException("unavailable padding algorithm : " + e.getMessage());
++        } catch (InvalidKeyException e) {
++            throw new SecureMessagingException("invalid key : " + e.getMessage());
++        } catch (BadPaddingException e) {
++            throw new SecureMessagingException("invalid IV : " + e.getMessage());
++        } catch (InvalidAlgorithmParameterException e) {
++            throw new SecureMessagingException("invalid IV : " + e.getMessage());
++        } catch (IllegalBlockSizeException e) {
++            throw new SecureMessagingException("invalid block size : " + e.getMessage());
++        }
++    }
++
++}
+diff --git a/OpenKeychain/src/main/java/org/sufficientlysecure/keychain/securitytoken/SecureMessaging.java b/OpenKeychain/src/main/java/org/sufficientlysecure/keychain/securitytoken/SecureMessaging.java
+new file mode 100644
+index 0000000..90436a3
+--- /dev/null
++++ b/OpenKeychain/src/main/java/org/sufficientlysecure/keychain/securitytoken/SecureMessaging.java
+@@ -0,0 +1,17 @@
++package org.sufficientlysecure.keychain.securitytoken;
++
++import java.io.IOException;
++
++import javax.smartcardio.CommandAPDU;
++import javax.smartcardio.ResponseAPDU;
++
++public interface SecureMessaging {
++
++    void clearSession();
++
++    boolean isEstablished();
++
++    CommandAPDU encryptAndSign(CommandAPDU apdu) throws SecureMessagingException;
++
++    ResponseAPDU verifyAndDecrypt(ResponseAPDU apdu) throws SecureMessagingException;
++}
+diff --git a/OpenKeychain/src/main/java/org/sufficientlysecure/keychain/securitytoken/SecureMessagingException.java b/OpenKeychain/src/main/java/org/sufficientlysecure/keychain/securitytoken/SecureMessagingException.java
+new file mode 100644
+index 0000000..5b8a8e3
+--- /dev/null
++++ b/OpenKeychain/src/main/java/org/sufficientlysecure/keychain/securitytoken/SecureMessagingException.java
+@@ -0,0 +1,8 @@
++package org.sufficientlysecure.keychain.securitytoken;
++
++public final class SecureMessagingException extends Exception {
++
++    public SecureMessagingException(String msg) {
++        super(msg);
++    }
++}
+diff --git a/OpenKeychain/src/main/java/org/sufficientlysecure/keychain/securitytoken/SecurityTokenHelper.java b/OpenKeychain/src/main/java/org/sufficientlysecure/keychain/securitytoken/SecurityTokenHelper.java
+index 878bf9d..ea54f19 100644
+--- a/OpenKeychain/src/main/java/org/sufficientlysecure/keychain/securitytoken/SecurityTokenHelper.java
++++ b/OpenKeychain/src/main/java/org/sufficientlysecure/keychain/securitytoken/SecurityTokenHelper.java
+@@ -21,16 +21,34 @@
+ 
+ package org.sufficientlysecure.keychain.securitytoken;
+ 
++import android.content.Context;
+ import android.support.annotation.NonNull;
+ 
++import org.bouncycastle.asn1.ASN1Encodable;
++import org.bouncycastle.asn1.ASN1Integer;
++import org.bouncycastle.asn1.ASN1OutputStream;
++import org.bouncycastle.asn1.DERSequence;
++import org.bouncycastle.asn1.nist.NISTNamedCurves;
++import org.bouncycastle.asn1.x9.X9ECParameters;
+ import org.bouncycastle.bcpg.HashAlgorithmTags;
++import org.bouncycastle.jcajce.util.MessageDigestUtils;
++import org.bouncycastle.math.ec.ECPoint;
++import org.bouncycastle.openpgp.PGPException;
++import org.bouncycastle.openpgp.operator.PGPPad;
++import org.bouncycastle.openpgp.operator.jcajce.JcaKeyFingerprintCalculator;
+ import org.bouncycastle.util.Arrays;
+ import org.bouncycastle.util.encoders.Hex;
+ import org.sufficientlysecure.keychain.Constants;
++import org.sufficientlysecure.keychain.pgp.CanonicalizedPublicKey;
+ import org.sufficientlysecure.keychain.pgp.CanonicalizedSecretKey;
+ import org.sufficientlysecure.keychain.pgp.exception.PgpGeneralException;
++
++import javax.crypto.Cipher;
++import javax.crypto.NoSuchPaddingException;
++import javax.crypto.spec.SecretKeySpec;
+ import javax.smartcardio.CommandAPDU;
+ import javax.smartcardio.ResponseAPDU;
++
+ import org.sufficientlysecure.keychain.securitytoken.usb.UsbTransportException;
+ import org.sufficientlysecure.keychain.util.Iso7816TLV;
+ import org.sufficientlysecure.keychain.util.Log;
+@@ -41,6 +59,12 @@ import java.io.ByteArrayOutputStream;
+ import java.io.IOException;
+ import java.math.BigInteger;
+ import java.nio.ByteBuffer;
++import java.security.InvalidKeyException;
++import java.security.Key;
++import java.security.MessageDigest;
++import java.security.NoSuchAlgorithmException;
++import java.security.interfaces.ECPrivateKey;
++import java.security.interfaces.ECPublicKey;
+ import java.security.interfaces.RSAPrivateCrtKey;
+ 
+ /**
+@@ -53,9 +77,9 @@ public class SecurityTokenHelper {
+     private static final int MAX_APDU_NC_EXT = 65535;
+ 
+     private static final int MAX_APDU_NE = 256;
+-    private static final int MAX_APDU_NE_EXT = 65536;
++    static final int MAX_APDU_NE_EXT = 65536;
+ 
+-    private static final int APDU_SW_SUCCESS = 0x9000;
++    static final int APDU_SW_SUCCESS = 0x9000;
+     private static final int APDU_SW1_RESPONSE_AVAILABLE = 0x61;
+ 
+     private static final int MASK_CLA_CHAINING = 1 << 4;
+@@ -67,6 +91,7 @@ public class SecurityTokenHelper {
+     private Transport mTransport;
+     private CardCapabilities mCardCapabilities;
+     private OpenPgpCapabilities mOpenPgpCapabilities;
++    private SecureMessaging mSecureMessaging;
+ 
+     private Passphrase mPin;
+     private Passphrase mAdminPin;
+@@ -74,9 +99,18 @@ public class SecurityTokenHelper {
+     private boolean mPw1ValidatedForDecrypt; // Mode 82 does other things; consider renaming?
+     private boolean mPw3Validated;
+ 
++    private final JcaKeyFingerprintCalculator fingerprintCalculator = new JcaKeyFingerprintCalculator();
++
++
+     protected SecurityTokenHelper() {
+     }
+ 
++    public static double parseOpenPgpVersion(final byte[] aid) {
++        float minv = aid[7];
++        while (minv > 0) minv /= 10.0;
++        return aid[6] + minv;
++    }
++
+     public static SecurityTokenHelper getInstance() {
+         return LazyHolder.SECURITY_TOKEN_HELPER;
+     }
+@@ -150,7 +184,7 @@ public class SecurityTokenHelper {
+      *
+      * @throws IOException
+      */
+-    public void connectToDevice() throws IOException {
++    public void connectToDevice(final Context ctx) throws IOException {
+         // Connect on transport layer
+         mCardCapabilities = new CardCapabilities();
+ 
+@@ -171,6 +205,16 @@ public class SecurityTokenHelper {
+         mPw1ValidatedForSignature = false;
+         mPw1ValidatedForDecrypt = false;
+         mPw3Validated = false;
++
++        if (mOpenPgpCapabilities.isHasSM()) {
++            try {
++                SCP11bSecureMessaging.establish(this, ctx);
++            } catch(SecureMessagingException e) {
++                mSecureMessaging = null;
++                Log.e(Constants.TAG, "failed to establish secure messaging", e);
++            }
++        }
++
+     }
+ 
+     /**
+@@ -218,17 +262,62 @@ public class SecurityTokenHelper {
+      * Call DECIPHER command
+      *
+      * @param encryptedSessionKey the encoded session key
++     * @param publicKey
+      * @return the decoded session key
+      */
+-    public byte[] decryptSessionKey(@NonNull byte[] encryptedSessionKey) throws IOException {
++    public byte[] decryptSessionKey(@NonNull byte[] encryptedSessionKey,
++                                    CanonicalizedPublicKey publicKey)
++            throws IOException {
++        final KeyFormat kf = mOpenPgpCapabilities.getFormatForKeyType(KeyType.ENCRYPT);
++
+         if (!mPw1ValidatedForDecrypt) {
+             verifyPin(0x82); // (Verify PW1 with mode 82 for decryption)
+         }
+ 
+-        // Transmit
+-        byte[] data = Arrays.copyOfRange(encryptedSessionKey, 2, encryptedSessionKey.length);
+-        if (data[0] != 0) {
+-            data = Arrays.prepend(data, (byte) 0x00);
++        byte[] data;
++        int pLen = 0;
++
++        X9ECParameters x9Params = null;
++
++        switch (kf.keyFormatType()) {
++            case RSAKeyFormatType:
++                data = Arrays.copyOfRange(encryptedSessionKey, 2, encryptedSessionKey.length);
++                if (data[0] != 0) {
++                    data = Arrays.prepend(data, (byte) 0x00);
++                }
++                break;
++
++            case ECKeyFormatType:
++                pLen = ((((encryptedSessionKey[0] & 0xff) << 8) + (encryptedSessionKey[1] & 0xff)) + 7) / 8;
++                data = new byte[pLen];
++
++                System.arraycopy(encryptedSessionKey, 2, data, 0, pLen);
++
++                final ECKeyFormat eckf = (ECKeyFormat)kf;
++                x9Params = NISTNamedCurves.getByOID(eckf.getCurveOID());
++
++                final ECPoint p = x9Params.getCurve().decodePoint(data);
++                if (!p.isValid()) {
++                    throw new CardException("Invalid EC point!");
++                }
++
++                data = p.getEncoded(false);
++                data = Arrays.concatenate(
++                        Hex.decode("86"),
++                        new byte[]{ (byte)data.length },
++                        data);
++                data = Arrays.concatenate(
++                        Hex.decode("7F49"),
++                        new byte[] { (byte)data.length },
++                        data);
++                data = Arrays.concatenate(
++                        Hex.decode("A6"),
++                        new byte[] { (byte)data.length },
++                        data);
++                break;
++
++            default:
++                throw new CardException("Unknown encryption key type!");
+         }
+ 
+         CommandAPDU command = new CommandAPDU(0x00, 0x2A, 0x80, 0x86, data, MAX_APDU_NE_EXT);
+@@ -238,7 +327,47 @@ public class SecurityTokenHelper {
+             throw new CardException("Deciphering with Security token failed on receive", response.getSW());
+         }
+ 
+-        return response.getData();
++        switch (mOpenPgpCapabilities.getFormatForKeyType(KeyType.ENCRYPT).keyFormatType()) {
++            case RSAKeyFormatType:
++                return response.getData();
++
++            case ECKeyFormatType:
++                data = response.getData();
++
++                final byte[] keyEnc = new byte[encryptedSessionKey[pLen + 2]];
++
++                System.arraycopy(encryptedSessionKey, 2 + pLen + 1, keyEnc, 0, keyEnc.length);
++
++                try {
++                    final MessageDigest kdf = MessageDigest.getInstance(MessageDigestUtils.getDigestName(publicKey.getHashAlgorithm()));
++
++                    kdf.update(new byte[]{ (byte)0, (byte)0, (byte)0, (byte)1 });
++                    kdf.update(data);
++                    kdf.update(publicKey.createUserKeyingMaterial(fingerprintCalculator));
++
++                    final byte[] kek = kdf.digest();
++                    final Cipher c = Cipher.getInstance("AESWrap");
++
++                    c.init(Cipher.UNWRAP_MODE, new SecretKeySpec(kek, 0, publicKey.getSymmetricKeySize() / 8, "AES"));
++
++                    final Key paddedSessionKey = c.unwrap(keyEnc, "Session", Cipher.SECRET_KEY);
++
++                    Arrays.fill(kek, (byte)0);
++
++                    return PGPPad.unpadSessionData(paddedSessionKey.getEncoded());
++                } catch (NoSuchAlgorithmException e) {
++                    throw new CardException("Unknown digest/encryption algorithm!");
++                } catch (NoSuchPaddingException e) {
++                    throw new CardException("Unknown padding algorithm!");
++                } catch (PGPException e) {
++                    throw new CardException(e.getMessage());
++                } catch (InvalidKeyException e) {
++                    throw new CardException("Invalid KEK!");
++                }
++
++            default:
++                throw new CardException("Unknown encryption key type!");
++        }
+     }
+ 
+     /**
+@@ -248,6 +377,7 @@ public class SecurityTokenHelper {
+      *             For PW3 (Admin PIN), mode is 0x83.
+      */
+     private void verifyPin(int mode) throws IOException {
++
+         if (mPin != null || mode == 0x83) {
+ 
+             byte[] pin;
+@@ -284,6 +414,7 @@ public class SecurityTokenHelper {
+         if (data.length > 254) {
+             throw new IOException("Cannot PUT DATA with length > 254");
+         }
++
+         if (dataObject == 0x0101 || dataObject == 0x0103) {
+             if (!mPw1ValidatedForDecrypt) {
+                 verifyPin(0x82); // (Verify PW1 for non-signing operations)
+@@ -300,6 +431,36 @@ public class SecurityTokenHelper {
+         }
+     }
+ 
++
++    private void setKeyAttributes(final KeyType slot, final CanonicalizedSecretKey secretKey)
++             throws IOException {
++
++        if (mOpenPgpCapabilities.isAttributesChangable()) {
++            int tag;
++
++            if (slot == KeyType.SIGN) {
++                tag = 0xC1;
++            } else if (slot == KeyType.ENCRYPT) {
++                tag = 0xC2;
++            } else if (slot == KeyType.AUTH) {
++                tag = 0xC3;
++            } else {
++                throw new IOException("Unknown key for card.");
++            }
++
++            try {
++
++                putData(tag, SecurityTokenUtils.attributesFromSecretKey(slot, secretKey));
++
++                mOpenPgpCapabilities.updateWithData(getData(0x00, tag));
++
++            } catch (PgpGeneralException e) {
++                throw new IOException("Key algorithm not supported by the security token.");
++            }
++
++        }
++    }
++
+     /**
+      * Puts a key on the token in the given slot.
+      *
+@@ -311,33 +472,58 @@ public class SecurityTokenHelper {
+     private void putKey(KeyType slot, CanonicalizedSecretKey secretKey, Passphrase passphrase)
+             throws IOException {
+         RSAPrivateCrtKey crtSecretKey;
++        ECPrivateKey ecSecretKey;
++        ECPublicKey ecPublicKey;
++
++        if (!mPw3Validated) {
++            verifyPin(0x83); // (Verify PW3 with mode 83)
++        }
++
++        // Now we're ready to communicate with the token.
++        byte[] keyBytes = null;
++
+         try {
+             secretKey.unlock(passphrase);
+-            crtSecretKey = secretKey.getCrtSecretKey();
+-        } catch (PgpGeneralException e) {
+-            throw new IOException(e.getMessage());
+-        }
+ 
+-        // Shouldn't happen; the UI should block the user from getting an incompatible key this far.
+-        if (crtSecretKey.getModulus().bitLength() > 2048) {
+-            throw new IOException("Key too large to export to Security Token.");
+-        }
++            setKeyAttributes(slot, secretKey);
+ 
+-        // Should happen only rarely; all GnuPG keys since 2006 use public exponent 65537.
+-        if (!crtSecretKey.getPublicExponent().equals(new BigInteger("65537"))) {
+-            throw new IOException("Invalid public exponent for smart Security Token.");
+-        }
++            switch (mOpenPgpCapabilities.getFormatForKeyType(slot).keyFormatType()) {
++                case RSAKeyFormatType:
++                    if (!secretKey.isRSA()) {
++                        throw new IOException("Security Token not configured for RSA key.");
++                    }
++                    crtSecretKey = secretKey.getCrtSecretKey();
+ 
+-        if (!mPw3Validated) {
+-            verifyPin(0x83); // (Verify PW3 with mode 83)
+-        }
++                    // Should happen only rarely; all GnuPG keys since 2006 use public exponent 65537.
++                    if (!crtSecretKey.getPublicExponent().equals(new BigInteger("65537"))) {
++                        throw new IOException("Invalid public exponent for smart Security Token.");
++                    }
+ 
++                    keyBytes = SecurityTokenUtils.createRSAPrivKeyTemplate(crtSecretKey, slot,
++                            (RSAKeyFormat) (mOpenPgpCapabilities.getFormatForKeyType(slot)));
++                    break;
+ 
+-        // Now we're ready to communicate with the token.
+-        byte[] bytes = SecurityTokenUtils.createPrivKeyTemplate(crtSecretKey, slot,
+-                mOpenPgpCapabilities.getFormatForKeyType(slot));
++                case ECKeyFormatType:
++                    if (!secretKey.isEC()) {
++                        throw new IOException("Security Token not configured for EC key.");
++                    }
++
++                    secretKey.unlock(passphrase);
++                    ecSecretKey = secretKey.getECSecretKey();
++                    ecPublicKey = secretKey.getECPublicKey();
++
++                    keyBytes = SecurityTokenUtils.createECPrivKeyTemplate(ecSecretKey, ecPublicKey, slot,
++                            (ECKeyFormat) (mOpenPgpCapabilities.getFormatForKeyType(slot)));
++                    break;
+ 
+-        CommandAPDU apdu = new CommandAPDU(0x00, 0xDB, 0x3F, 0xFF, bytes);
++                default:
++                    throw new IOException("Key type unsupported by security token.");
++            }
++        } catch (PgpGeneralException e) {
++            throw new IOException(e.getMessage());
++        }
++
++        CommandAPDU apdu = new CommandAPDU(0x00, 0xDB, 0x3F, 0xFF, keyBytes);
+         ResponseAPDU response = communicate(apdu);
+ 
+         if (response.getSW() != APDU_SW_SUCCESS) {
+@@ -409,6 +595,7 @@ public class SecurityTokenHelper {
+      * @return a big integer representing the MPI for the given hash
+      */
+     public byte[] calculateSignature(byte[] hash, int hashAlgo) throws IOException {
++
+         if (!mPw1ValidatedForSignature) {
+             verifyPin(0x81); // (Verify PW1 with mode 81 for signing)
+         }
+@@ -462,8 +649,21 @@ public class SecurityTokenHelper {
+                 throw new IOException("Not supported hash algo!");
+         }
+ 
++        byte[] data;
++
++        switch (mOpenPgpCapabilities.getFormatForKeyType(KeyType.SIGN).keyFormatType()) {
++            case RSAKeyFormatType:
++                data = dsi;
++                break;
++            case ECKeyFormatType:
++                data = hash;
++                break;
++            default:
++                throw new IOException("Not supported key type!");
++        }
++
+         // Command APDU for PERFORM SECURITY OPERATION: COMPUTE DIGITAL SIGNATURE (page 37)
+-        CommandAPDU command = new CommandAPDU(0x00, 0x2A, 0x9E, 0x9A, dsi, MAX_APDU_NE_EXT);
++        CommandAPDU command = new CommandAPDU(0x00, 0x2A, 0x9E, 0x9A, data, MAX_APDU_NE_EXT);
+         ResponseAPDU response = communicate(command);
+ 
+         if (response.getSW() != APDU_SW_SUCCESS) {
+@@ -477,9 +677,30 @@ public class SecurityTokenHelper {
+         byte[] signature = response.getData();
+ 
+         // Make sure the signature we received is actually the expected number of bytes long!
+-        if (signature.length != 128 && signature.length != 256
+-                && signature.length != 384 && signature.length != 512) {
+-            throw new IOException("Bad signature length! Expected 128/256/384/512 bytes, got " + signature.length);
++        switch (mOpenPgpCapabilities.getFormatForKeyType(KeyType.SIGN).keyFormatType()) {
++            case RSAKeyFormatType:
++                if (signature.length != 128 && signature.length != 256
++                        && signature.length != 384 && signature.length != 512) {
++                    throw new IOException("Bad signature length! Expected 128/256/384/512 bytes, got " + signature.length);
++                }
++                break;
++
++            case ECKeyFormatType:
++                if (signature.length % 2 != 0) {
++                    throw new IOException("Bad signature length!");
++                }
++                final byte[] br = new byte[signature.length / 2];
++                final byte[] bs = new byte[signature.length / 2];
++                for(int i = 0; i < br.length; ++i) {
++                    br[i] = signature[i];
++                    bs[i] = signature[br.length + i];
++                }
++                final ByteArrayOutputStream baos = new ByteArrayOutputStream();
++                ASN1OutputStream out = new ASN1OutputStream(baos);
++                out.writeObject(new DERSequence(new ASN1Encodable[] { new ASN1Integer(br), new ASN1Integer(bs) }));
++                out.flush();
++                signature = baos.toByteArray();
++                break;
+         }
+ 
+         return signature;
+@@ -494,7 +715,16 @@ public class SecurityTokenHelper {
+      * @return response from the card
+      * @throws IOException
+      */
+-    private ResponseAPDU communicate(CommandAPDU apdu) throws IOException {
++    ResponseAPDU communicate(CommandAPDU apdu) throws IOException {
++        if ((mSecureMessaging != null) && mSecureMessaging.isEstablished()) {
++            try {
++                apdu = mSecureMessaging.encryptAndSign(apdu);
++            } catch (SecureMessagingException e) {
++                clearSecureMessaging();
++                throw new IOException("secure messaging encrypt/sign failure : " + e. getMessage());
++            }
++        }
++
+         ByteArrayOutputStream result = new ByteArrayOutputStream();
+ 
+         ResponseAPDU lastResponse = null;
+@@ -541,7 +771,18 @@ public class SecurityTokenHelper {
+         result.write(lastResponse.getSW1());
+         result.write(lastResponse.getSW2());
+ 
+-        return new ResponseAPDU(result.toByteArray());
++        lastResponse = new ResponseAPDU(result.toByteArray());
++
++        if ((mSecureMessaging != null) && mSecureMessaging.isEstablished()) {
++            try {
++                lastResponse = mSecureMessaging.verifyAndDecrypt(lastResponse);
++            } catch (SecureMessagingException e) {
++                clearSecureMessaging();
++                throw new IOException("secure messaging verify/decrypt failure : " + e. getMessage());
++            }
++        }
++
++        return lastResponse;
+     }
+ 
+     public Transport getTransport() {
+@@ -549,6 +790,7 @@ public class SecurityTokenHelper {
+     }
+ 
+     public void setTransport(Transport mTransport) {
++        clearSecureMessaging();
+         this.mTransport = mTransport;
+     }
+ 
+@@ -628,6 +870,9 @@ public class SecurityTokenHelper {
+             }
+         }
+ 
++        // secure messaging must be disabled before reactivation
++        clearSecureMessaging();
++
+         // reactivate token!
+         // NOTE: keep the order here! First execute _both_ reactivate commands. Before checking _both_ responses
+         // If a token is in a bad state and reactivate1 fails, it could still be reactivated with reactivate2
+@@ -666,13 +911,32 @@ public class SecurityTokenHelper {
+     }
+ 
+     public boolean isPersistentConnectionAllowed() {
+-        return mTransport != null && mTransport.isPersistentConnectionAllowed();
++        return mTransport != null &&
++                mTransport.isPersistentConnectionAllowed() &&
++                (mSecureMessaging == null ||
++                 !mSecureMessaging.isEstablished());
+     }
+ 
+     public boolean isConnected() {
+         return mTransport != null && mTransport.isConnected();
+     }
+ 
++    public void clearSecureMessaging() {
++        if(mSecureMessaging != null) {
++            mSecureMessaging.clearSession();
++        }
++        mSecureMessaging = null;
++    }
++
++    void setSecureMessaging(final SecureMessaging sm) {
++        clearSecureMessaging();
++        mSecureMessaging = sm;
++    }
++
++    OpenPgpCapabilities getOpenPgpCapabilities() {
++        return mOpenPgpCapabilities;
++    }
++
+     private static class LazyHolder {
+         private static final SecurityTokenHelper SECURITY_TOKEN_HELPER = new SecurityTokenHelper();
+     }
+diff --git a/OpenKeychain/src/main/java/org/sufficientlysecure/keychain/ui/CreateKeyActivity.java b/OpenKeychain/src/main/java/org/sufficientlysecure/keychain/ui/CreateKeyActivity.java
+index b0e922c..19cbb76 100644
+--- a/OpenKeychain/src/main/java/org/sufficientlysecure/keychain/ui/CreateKeyActivity.java
++++ b/OpenKeychain/src/main/java/org/sufficientlysecure/keychain/ui/CreateKeyActivity.java
+@@ -31,6 +31,7 @@ import org.sufficientlysecure.keychain.pgp.exception.PgpKeyNotFoundException;
+ import org.sufficientlysecure.keychain.provider.CachedPublicKeyRing;
+ import org.sufficientlysecure.keychain.provider.KeychainContract.KeyRings;
+ import org.sufficientlysecure.keychain.provider.ProviderHelper;
++import org.sufficientlysecure.keychain.securitytoken.KeyFormat;
+ import org.sufficientlysecure.keychain.ui.base.BaseSecurityTokenActivity;
+ import org.sufficientlysecure.keychain.ui.util.KeyFormattingUtils;
+ import org.sufficientlysecure.keychain.util.Passphrase;
+@@ -64,6 +65,9 @@ public class CreateKeyActivity extends BaseSecurityTokenActivity {
+     boolean mCreateSecurityToken;
+     Passphrase mSecurityTokenPin;
+     Passphrase mSecurityTokenAdminPin;
++    KeyFormat mSecurityTokenSign;
++    KeyFormat mSecurityTokenDec;
++    KeyFormat mSecurityTokenAuth;
+ 
+     Fragment mCurrentFragment;
+ 
+@@ -97,6 +101,7 @@ public class CreateKeyActivity extends BaseSecurityTokenActivity {
+             mPassphrase = savedInstanceState.getParcelable(EXTRA_PASSPHRASE);
+             mFirstTime = savedInstanceState.getBoolean(EXTRA_FIRST_TIME);
+             mCreateSecurityToken = savedInstanceState.getBoolean(EXTRA_CREATE_SECURITY_TOKEN);
++            mSecurityTokenAid = savedInstanceState.getByteArray(EXTRA_SECURITY_TOKEN_AID);
+             mSecurityTokenPin = savedInstanceState.getParcelable(EXTRA_SECURITY_TOKEN_PIN);
+             mSecurityTokenAdminPin = savedInstanceState.getParcelable(EXTRA_SECURITY_TOKEN_ADMIN_PIN);
+ 
+@@ -122,7 +127,7 @@ public class CreateKeyActivity extends BaseSecurityTokenActivity {
+ 
+                     setTitle(R.string.title_import_keys);
+                 } else {
+-                    Fragment frag = CreateSecurityTokenBlankFragment.newInstance();
++                    Fragment frag = CreateSecurityTokenBlankFragment.newInstance(nfcAid);
+                     loadFragment(frag, FragAction.START);
+                     setTitle(R.string.title_manage_my_keys);
+                 }
+@@ -192,7 +197,7 @@ public class CreateKeyActivity extends BaseSecurityTokenActivity {
+                 loadFragment(frag, FragAction.TO_RIGHT);
+             }
+         } else {
+-            Fragment frag = CreateSecurityTokenBlankFragment.newInstance();
++            Fragment frag = CreateSecurityTokenBlankFragment.newInstance(mSecurityTokenAid);
+             loadFragment(frag, FragAction.TO_RIGHT);
+         }
+     }
+@@ -221,6 +226,7 @@ public class CreateKeyActivity extends BaseSecurityTokenActivity {
+         outState.putParcelable(EXTRA_PASSPHRASE, mPassphrase);
+         outState.putBoolean(EXTRA_FIRST_TIME, mFirstTime);
+         outState.putBoolean(EXTRA_CREATE_SECURITY_TOKEN, mCreateSecurityToken);
++        outState.putByteArray(EXTRA_SECURITY_TOKEN_AID, mSecurityTokenAid);
+         outState.putParcelable(EXTRA_SECURITY_TOKEN_PIN, mSecurityTokenPin);
+         outState.putParcelable(EXTRA_SECURITY_TOKEN_ADMIN_PIN, mSecurityTokenAdminPin);
+     }
+diff --git a/OpenKeychain/src/main/java/org/sufficientlysecure/keychain/ui/CreateKeyFinalFragment.java b/OpenKeychain/src/main/java/org/sufficientlysecure/keychain/ui/CreateKeyFinalFragment.java
+index 99a4b02..2c094b6 100644
+--- a/OpenKeychain/src/main/java/org/sufficientlysecure/keychain/ui/CreateKeyFinalFragment.java
++++ b/OpenKeychain/src/main/java/org/sufficientlysecure/keychain/ui/CreateKeyFinalFragment.java
+@@ -282,12 +282,9 @@ public class CreateKeyFinalFragment extends Fragment {
+         SaveKeyringParcel saveKeyringParcel = new SaveKeyringParcel();
+ 
+         if (createKeyActivity.mCreateSecurityToken) {
+-            saveKeyringParcel.mAddSubKeys.add(new SaveKeyringParcel.SubkeyAdd(Algorithm.RSA,
+-                    2048, null, KeyFlags.SIGN_DATA | KeyFlags.CERTIFY_OTHER, 0L));
+-            saveKeyringParcel.mAddSubKeys.add(new SaveKeyringParcel.SubkeyAdd(Algorithm.RSA,
+-                    2048, null, KeyFlags.ENCRYPT_COMMS | KeyFlags.ENCRYPT_STORAGE, 0L));
+-            saveKeyringParcel.mAddSubKeys.add(new SaveKeyringParcel.SubkeyAdd(Algorithm.RSA,
+-                    2048, null, KeyFlags.AUTHENTICATION, 0L));
++            createKeyActivity.mSecurityTokenSign.addToKeyring(saveKeyringParcel, KeyFlags.SIGN_DATA | KeyFlags.CERTIFY_OTHER);
++            createKeyActivity.mSecurityTokenDec.addToKeyring(saveKeyringParcel, KeyFlags.ENCRYPT_COMMS | KeyFlags.ENCRYPT_STORAGE);
++            createKeyActivity.mSecurityTokenAuth.addToKeyring(saveKeyringParcel, KeyFlags.AUTHENTICATION);
+ 
+             // use empty passphrase
+             saveKeyringParcel.setNewUnlock(new ChangeUnlockParcel(new Passphrase()));
+@@ -383,7 +380,6 @@ public class CreateKeyFinalFragment extends Fragment {
+ 
+             @Override
+             public void onCryptoOperationCancelled() {
+-
+             }
+ 
+             @Override
+diff --git a/OpenKeychain/src/main/java/org/sufficientlysecure/keychain/ui/CreateSecurityTokenAlgorithmFragment.java b/OpenKeychain/src/main/java/org/sufficientlysecure/keychain/ui/CreateSecurityTokenAlgorithmFragment.java
+new file mode 100644
+index 0000000..90a9022
+--- /dev/null
++++ b/OpenKeychain/src/main/java/org/sufficientlysecure/keychain/ui/CreateSecurityTokenAlgorithmFragment.java
+@@ -0,0 +1,193 @@
++/*
++ * Copyright (C) 2015 Dominik Schürmann <dominik@dominikschuermann.de>
++ *
++ * This program is free software: you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation, either version 3 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
++ */
++
++package org.sufficientlysecure.keychain.ui;
++
++import android.app.Activity;
++import android.content.Context;
++import android.os.Bundle;
++import android.support.v4.app.Fragment;
++import android.support.v4.app.FragmentActivity;
++import android.text.Html;
++import android.view.LayoutInflater;
++import android.view.View;
++import android.view.ViewGroup;
++import android.widget.ArrayAdapter;
++import android.widget.Spinner;
++import android.widget.TextView;
++
++import org.sufficientlysecure.keychain.R;
++import org.sufficientlysecure.keychain.securitytoken.KeyFormat;
++import org.sufficientlysecure.keychain.securitytoken.SecurityTokenHelper;
++import org.sufficientlysecure.keychain.ui.CreateKeyActivity.FragAction;
++import org.sufficientlysecure.keychain.util.Choice;
++import org.sufficientlysecure.keychain.util.Log;
++import org.sufficientlysecure.keychain.util.SecurityTokenUtils;
++
++import java.util.ArrayList;
++import java.util.List;
++
++public class CreateSecurityTokenAlgorithmFragment extends Fragment {
++
++
++    public enum SupportedKeyType {
++        RSA_2048, RSA_3072, RSA_4096, ECC_P256, ECC_P384, ECC_P521
++    }
++
++    private CreateKeyActivity mCreateKeyActivity;
++
++    private View mBackButton;
++    private View mNextButton;
++
++    private Spinner mSignKeySpinner;
++    private Spinner mDecKeySpinner;
++    private Spinner mAuthKeySpinner;
++
++
++    /**
++     * Creates new instance of this fragment
++     */
++    public static CreateSecurityTokenAlgorithmFragment newInstance() {
++        CreateSecurityTokenAlgorithmFragment frag = new CreateSecurityTokenAlgorithmFragment();
++
++        Bundle args = new Bundle();
++        frag.setArguments(args);
++
++        return frag;
++    }
++
++    @Override
++    public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
++        final FragmentActivity context = getActivity();
++        View view = inflater.inflate(R.layout.create_yubi_key_algorithm_fragment, container, false);
++
++        mBackButton = (TextView) view.findViewById(R.id.create_key_back_button);
++        mNextButton = (TextView) view.findViewById(R.id.create_key_next_button);
++
++        mBackButton.setOnClickListener(new View.OnClickListener() {
++            @Override
++            public void onClick(View v) {
++                back();
++            }
++        });
++        mNextButton.setOnClickListener(new View.OnClickListener() {
++            @Override
++            public void onClick(View v) {
++                nextClicked();
++            }
++        });
++
++        mSignKeySpinner = (Spinner) view.findViewById(R.id.create_key_yubi_key_algorithm_sign);
++        mDecKeySpinner = (Spinner) view.findViewById(R.id.create_key_yubi_key_algorithm_dec);
++        mAuthKeySpinner = (Spinner) view.findViewById(R.id.create_key_yubi_key_algorithm_auth);
++
++        ArrayList<Choice<SupportedKeyType>> choices = new ArrayList<>();
++
++        choices.add(new Choice<>(SupportedKeyType.RSA_2048, getResources().getString(
++                R.string.rsa_2048), getResources().getString(R.string.rsa_2048_description_html)));
++        choices.add(new Choice<>(SupportedKeyType.RSA_3072, getResources().getString(
++                R.string.rsa_3072), getResources().getString(R.string.rsa_3072_description_html)));
++        choices.add(new Choice<>(SupportedKeyType.RSA_4096, getResources().getString(
++                R.string.rsa_4096), getResources().getString(R.string.rsa_4096_description_html)));
++
++        final double version = SecurityTokenHelper.parseOpenPgpVersion(mCreateKeyActivity.mSecurityTokenAid);
++
++        if (version >= 3.0) {
++            choices.add(new Choice<>(SupportedKeyType.ECC_P256, getResources().getString(
++                    R.string.ecc_p256), getResources().getString(R.string.ecc_p256_description_html)));
++            choices.add(new Choice<>(SupportedKeyType.ECC_P384, getResources().getString(
++                    R.string.ecc_p384), getResources().getString(R.string.ecc_p384_description_html)));
++            choices.add(new Choice<>(SupportedKeyType.ECC_P521, getResources().getString(
++                    R.string.ecc_p521), getResources().getString(R.string.ecc_p521_description_html)));
++        }
++
++        TwoLineArrayAdapter adapter = new TwoLineArrayAdapter(context,
++                android.R.layout.simple_spinner_item, choices);
++        mSignKeySpinner.setAdapter(adapter);
++        mDecKeySpinner.setAdapter(adapter);
++        mAuthKeySpinner.setAdapter(adapter);
++
++        // make ECC nist256 the default for v3.x
++        for (int i = 0; i < choices.size(); ++i) {
++            if (version >= 3.0) {
++                if (choices.get(i).getId() == SupportedKeyType.ECC_P256) {
++                    mSignKeySpinner.setSelection(i);
++                    mDecKeySpinner.setSelection(i);
++                    mAuthKeySpinner.setSelection(i);
++                    break;
++                }
++            } else {
++                if (choices.get(i).getId() == SupportedKeyType.RSA_2048) {
++                    mSignKeySpinner.setSelection(i);
++                    mDecKeySpinner.setSelection(i);
++                    mAuthKeySpinner.setSelection(i);
++                    break;
++                }
++            }
++        }
++
++        return view;
++    }
++
++    @Override
++    public void onAttach(Activity activity) {
++        super.onAttach(activity);
++        mCreateKeyActivity = (CreateKeyActivity) getActivity();
++    }
++
++    private void back() {
++        mCreateKeyActivity.loadFragment(null, FragAction.TO_LEFT);
++    }
++
++    private void nextClicked() {
++        mCreateKeyActivity.mSecurityTokenSign = KeyFormat.fromCreationKeyType(((Choice<SupportedKeyType>)mSignKeySpinner.getSelectedItem()).getId(), false);
++        mCreateKeyActivity.mSecurityTokenDec = KeyFormat.fromCreationKeyType(((Choice<SupportedKeyType>)mDecKeySpinner.getSelectedItem()).getId(), true);
++        mCreateKeyActivity.mSecurityTokenAuth = KeyFormat.fromCreationKeyType(((Choice<SupportedKeyType>)mAuthKeySpinner.getSelectedItem()).getId(), false);
++
++        CreateKeyFinalFragment frag = CreateKeyFinalFragment.newInstance();
++        mCreateKeyActivity.loadFragment(frag, FragAction.TO_RIGHT);
++    }
++
++
++
++
++    private class TwoLineArrayAdapter extends ArrayAdapter<Choice<SupportedKeyType>> {
++        public TwoLineArrayAdapter(Context context, int resource, List<Choice<SupportedKeyType>> objects) {
++            super(context, resource, objects);
++        }
++
++
++        @Override
++        public View getDropDownView(int position, View convertView, ViewGroup parent) {
++            // inflate view if not given one
++            if (convertView == null) {
++                convertView = getActivity().getLayoutInflater()
++                        .inflate(R.layout.two_line_spinner_dropdown_item, parent, false);
++            }
++
++            Choice c = this.getItem(position);
++
++            TextView text1 = (TextView) convertView.findViewById(android.R.id.text1);
++            TextView text2 = (TextView) convertView.findViewById(android.R.id.text2);
++
++            text1.setText(c.getName());
++            text2.setText(Html.fromHtml(c.getDescription()));
++
++            return convertView;
++        }
++    }
++}
+diff --git a/OpenKeychain/src/main/java/org/sufficientlysecure/keychain/ui/CreateSecurityTokenBlankFragment.java b/OpenKeychain/src/main/java/org/sufficientlysecure/keychain/ui/CreateSecurityTokenBlankFragment.java
+index 08441c1..3f52e09 100644
+--- a/OpenKeychain/src/main/java/org/sufficientlysecure/keychain/ui/CreateSecurityTokenBlankFragment.java
++++ b/OpenKeychain/src/main/java/org/sufficientlysecure/keychain/ui/CreateSecurityTokenBlankFragment.java
+@@ -33,14 +33,17 @@ public class CreateSecurityTokenBlankFragment extends Fragment {
+     View mBackButton;
+     View mNextButton;
+ 
++    private byte[] mAid;
++
+     /**
+      * Creates new instance of this fragment
+      */
+-    public static CreateSecurityTokenBlankFragment newInstance() {
++    public static CreateSecurityTokenBlankFragment newInstance(byte[] aid) {
+         CreateSecurityTokenBlankFragment frag = new CreateSecurityTokenBlankFragment();
+ 
+         Bundle args = new Bundle();
+ 
++        frag.mAid = aid;
+         frag.setArguments(args);
+ 
+         return frag;
+@@ -82,6 +85,7 @@ public class CreateSecurityTokenBlankFragment extends Fragment {
+ 
+     private void nextClicked() {
+         mCreateKeyActivity.mCreateSecurityToken = true;
++        mCreateKeyActivity.mSecurityTokenAid = mAid;
+ 
+         CreateKeyNameFragment frag = CreateKeyNameFragment.newInstance();
+         mCreateKeyActivity.loadFragment(frag, FragAction.TO_RIGHT);
+diff --git a/OpenKeychain/src/main/java/org/sufficientlysecure/keychain/ui/CreateSecurityTokenImportResetFragment.java b/OpenKeychain/src/main/java/org/sufficientlysecure/keychain/ui/CreateSecurityTokenImportResetFragment.java
+index 795d27b..480e0fa 100644
+--- a/OpenKeychain/src/main/java/org/sufficientlysecure/keychain/ui/CreateSecurityTokenImportResetFragment.java
++++ b/OpenKeychain/src/main/java/org/sufficientlysecure/keychain/ui/CreateSecurityTokenImportResetFragment.java
+@@ -38,6 +38,7 @@ import org.sufficientlysecure.keychain.R;
+ import org.sufficientlysecure.keychain.keyimport.ParcelableKeyRing;
+ import org.sufficientlysecure.keychain.operations.results.ImportKeyResult;
+ import org.sufficientlysecure.keychain.provider.KeychainContract.KeyRings;
++import org.sufficientlysecure.keychain.securitytoken.SecurityTokenHelper;
+ import org.sufficientlysecure.keychain.service.ImportKeyringParcel;
+ import org.sufficientlysecure.keychain.service.input.CryptoInputParcel;
+ import org.sufficientlysecure.keychain.service.input.RequiredInputParcel;
+@@ -62,6 +63,7 @@ public class CreateSecurityTokenImportResetFragment
+ 
+     private byte[] mTokenFingerprints;
+     private byte[] mTokenAid;
++    private double mTokenVersion;
+     private String mTokenUserId;
+     private String mTokenFingerprint;
+     private ImportKeysListFragment mListFragment;
+@@ -251,6 +253,7 @@ public class CreateSecurityTokenImportResetFragment
+ 
+         mTokenFingerprints = mCreateKeyActivity.getSecurityTokenHelper().getFingerprints();
+         mTokenAid = mCreateKeyActivity.getSecurityTokenHelper().getAid();
++        mTokenVersion = SecurityTokenHelper.parseOpenPgpVersion(mTokenAid);
+         mTokenUserId = mCreateKeyActivity.getSecurityTokenHelper().getUserId();
+ 
+         byte[] fp = new byte[20];
+@@ -287,6 +290,7 @@ public class CreateSecurityTokenImportResetFragment
+         viewKeyIntent.setData(KeyRings.buildGenericKeyRingUri(masterKeyIds[0]));
+         viewKeyIntent.putExtra(ViewKeyActivity.EXTRA_DISPLAY_RESULT, result);
+         viewKeyIntent.putExtra(ViewKeyActivity.EXTRA_SECURITY_TOKEN_AID, mTokenAid);
++        viewKeyIntent.putExtra(ViewKeyActivity.EXTRA_SECURITY_TOKEN_VERSION, mTokenVersion);
+         viewKeyIntent.putExtra(ViewKeyActivity.EXTRA_SECURITY_TOKEN_USER_ID, mTokenUserId);
+         viewKeyIntent.putExtra(ViewKeyActivity.EXTRA_SECURITY_TOKEN_FINGERPRINTS, mTokenFingerprints);
+ 
+diff --git a/OpenKeychain/src/main/java/org/sufficientlysecure/keychain/ui/CreateSecurityTokenPinFragment.java b/OpenKeychain/src/main/java/org/sufficientlysecure/keychain/ui/CreateSecurityTokenPinFragment.java
+index a6ecef4..9fe35fc 100644
+--- a/OpenKeychain/src/main/java/org/sufficientlysecure/keychain/ui/CreateSecurityTokenPinFragment.java
++++ b/OpenKeychain/src/main/java/org/sufficientlysecure/keychain/ui/CreateSecurityTokenPinFragment.java
+@@ -200,7 +200,7 @@ public class CreateSecurityTokenPinFragment extends Fragment {
+ 
+             mCreateKeyActivity.mSecurityTokenPin = new Passphrase(mPin.getText().toString());
+ 
+-            CreateKeyFinalFragment frag = CreateKeyFinalFragment.newInstance();
++            CreateSecurityTokenAlgorithmFragment frag = CreateSecurityTokenAlgorithmFragment.newInstance();
+             hideKeyboard();
+             mCreateKeyActivity.loadFragment(frag, FragAction.TO_RIGHT);
+         }
+diff --git a/OpenKeychain/src/main/java/org/sufficientlysecure/keychain/ui/EditKeyFragment.java b/OpenKeychain/src/main/java/org/sufficientlysecure/keychain/ui/EditKeyFragment.java
+index 9181c6f..6bf7cae 100644
+--- a/OpenKeychain/src/main/java/org/sufficientlysecure/keychain/ui/EditKeyFragment.java
++++ b/OpenKeychain/src/main/java/org/sufficientlysecure/keychain/ui/EditKeyFragment.java
+@@ -35,6 +35,8 @@ import android.view.ViewGroup;
+ import android.widget.AdapterView;
+ import android.widget.ListView;
+ 
++import org.bouncycastle.asn1.ASN1ObjectIdentifier;
++import org.bouncycastle.asn1.nist.NISTNamedCurves;
+ import org.bouncycastle.bcpg.PublicKeyAlgorithmTags;
+ import org.sufficientlysecure.keychain.Constants;
+ import org.sufficientlysecure.keychain.R;
+@@ -449,19 +451,31 @@ public class EditKeyFragment extends QueueingCryptoOperationFragment<SaveKeyring
+                             break;
+                         }
+ 
+-                        int algorithm = mSubkeysAdapter.getAlgorithm(position);
+-                        if (algorithm != PublicKeyAlgorithmTags.RSA_GENERAL
+-                                && algorithm != PublicKeyAlgorithmTags.RSA_ENCRYPT
+-                                && algorithm != PublicKeyAlgorithmTags.RSA_SIGN) {
+-                            Notify.create(getActivity(), R.string.edit_key_error_bad_security_token_algo, Notify.Style.ERROR)
+-                                    .show();
+-                            break;
+-                        }
+-
+-                        if (mSubkeysAdapter.getKeySize(position) != 2048) {
+-                            Notify.create(getActivity(), R.string.edit_key_error_bad_security_token_size, Notify.Style.ERROR)
+-                                    .show();
+-                            break;
++                        switch (mSubkeysAdapter.getAlgorithm(position)) {
++                            case PublicKeyAlgorithmTags.RSA_GENERAL:
++                            case PublicKeyAlgorithmTags.RSA_ENCRYPT:
++                            case PublicKeyAlgorithmTags.RSA_SIGN:
++                                if (mSubkeysAdapter.getKeySize(position) < 2048) {
++                                    Notify.create(getActivity(), R.string.edit_key_error_bad_security_token_size, Notify.Style.ERROR)
++                                            .show();
++                                }
++                                break;
++
++                            case PublicKeyAlgorithmTags.ECDH:
++                            case PublicKeyAlgorithmTags.ECDSA:
++                                final ASN1ObjectIdentifier curve = NISTNamedCurves.getOID(mSubkeysAdapter.getCurveOid(position));
++                                if (!curve.equals(NISTNamedCurves.getByName("P-256")) &&
++                                        !curve.equals(NISTNamedCurves.getByName("P-384")) &&
++                                        !curve.equals(NISTNamedCurves.getByName("P-521"))) {
++                                    Notify.create(getActivity(), R.string.edit_key_error_bad_security_token_curve, Notify.Style.ERROR)
++                                            .show();
++                                }
++                                break;
++
++                            default:
++                                Notify.create(getActivity(), R.string.edit_key_error_bad_security_token_algo, Notify.Style.ERROR)
++                                        .show();
++                                break;
+                         }
+ 
+                         SubkeyChange change;
+diff --git a/OpenKeychain/src/main/java/org/sufficientlysecure/keychain/ui/SecurityTokenOperationActivity.java b/OpenKeychain/src/main/java/org/sufficientlysecure/keychain/ui/SecurityTokenOperationActivity.java
+index 4d07025..c663a2f 100644
+--- a/OpenKeychain/src/main/java/org/sufficientlysecure/keychain/ui/SecurityTokenOperationActivity.java
++++ b/OpenKeychain/src/main/java/org/sufficientlysecure/keychain/ui/SecurityTokenOperationActivity.java
+@@ -32,6 +32,7 @@ import android.widget.ViewAnimator;
+ 
+ import org.sufficientlysecure.keychain.Constants;
+ import org.sufficientlysecure.keychain.R;
++import org.sufficientlysecure.keychain.pgp.CanonicalizedPublicKeyRing;
+ import org.sufficientlysecure.keychain.pgp.CanonicalizedSecretKey;
+ import org.sufficientlysecure.keychain.pgp.CanonicalizedSecretKeyRing;
+ import org.sufficientlysecure.keychain.provider.KeychainContract;
+@@ -192,9 +193,18 @@ public class SecurityTokenOperationActivity extends BaseSecurityTokenActivity {
+                     throw new IOException(getString(R.string.error_wrong_security_token));
+                 }
+ 
++                ProviderHelper providerHelper = new ProviderHelper(this);
++                CanonicalizedPublicKeyRing publicKeyRing;
++                try {
++                    publicKeyRing = providerHelper.getCanonicalizedPublicKeyRing(
++                            KeychainContract.KeyRings.buildUnifiedKeyRingsFindBySubkeyUri(mRequiredInput.getMasterKeyId()));
++                } catch (ProviderHelper.NotFoundException e) {
++                    throw new IOException("Couldn't find subkey for key to token operation.");
++                }
++
+                 for (int i = 0; i < mRequiredInput.mInputData.length; i++) {
+                     byte[] encryptedSessionKey = mRequiredInput.mInputData[i];
+-                    byte[] decryptedSessionKey = mSecurityTokenHelper.decryptSessionKey(encryptedSessionKey);
++                    byte[] decryptedSessionKey = mSecurityTokenHelper.decryptSessionKey(encryptedSessionKey, publicKeyRing.getPublicKey(tokenKeyId));
+                     mInputParcel.addCryptoData(encryptedSessionKey, decryptedSessionKey);
+                 }
+                 break;
+@@ -288,6 +298,7 @@ public class SecurityTokenOperationActivity extends BaseSecurityTokenActivity {
+             // Just close
+             finish();
+         } else {
++            mSecurityTokenHelper.clearSecureMessaging();
+             new AsyncTask<Void, Void, Void>() {
+                 @Override
+                 protected Void doInBackground(Void... params) {
+diff --git a/OpenKeychain/src/main/java/org/sufficientlysecure/keychain/ui/SettingsActivity.java b/OpenKeychain/src/main/java/org/sufficientlysecure/keychain/ui/SettingsActivity.java
+index 894ce78..ddd6d55 100644
+--- a/OpenKeychain/src/main/java/org/sufficientlysecure/keychain/ui/SettingsActivity.java
++++ b/OpenKeychain/src/main/java/org/sufficientlysecure/keychain/ui/SettingsActivity.java
+@@ -57,11 +57,18 @@ import org.sufficientlysecure.keychain.util.Log;
+ import org.sufficientlysecure.keychain.util.Preferences;
+ import org.sufficientlysecure.keychain.util.orbot.OrbotHelper;
+ 
++import java.io.IOException;
++import java.security.KeyStore;
++import java.security.KeyStoreException;
++import java.security.NoSuchAlgorithmException;
++import java.security.cert.CertificateException;
+ import java.util.List;
++import java.util.Set;
+ 
+ public class SettingsActivity extends AppCompatPreferenceActivity {
+ 
+     public static final int REQUEST_CODE_KEYSERVER_PREF = 0x00007005;
++    public static final int REQUEST_CODE_SMARTPGP_AUTHORITIES_PREF = 0x00007006;
+     private static final int REQUEST_PERMISSION_READ_CONTACTS = 13;
+ 
+     private static Preferences sPreferences;
+@@ -552,6 +559,8 @@ public class SettingsActivity extends AppCompatPreferenceActivity {
+      */
+     public static class ExperimentalPrefsFragment extends PresetPreferenceFragment {
+ 
++        private PreferenceScreen mSmartPGPAuthoritiesPreference = null;
++
+         @Override
+         public void onCreate(Bundle savedInstanceState) {
+             super.onCreate(savedInstanceState);
+@@ -561,6 +570,51 @@ public class SettingsActivity extends AppCompatPreferenceActivity {
+ 
+             initializeTheme((ListPreference) findPreference(Constants.Pref.THEME));
+ 
++            mSmartPGPAuthoritiesPreference = (PreferenceScreen) findPreference(Constants.Pref.EXPERIMENTAL_SMARTPGP_AUTHORITIES);
++
++            final KeyStore ks = SettingsSmartPGPAuthoritiesActivity.readKeystore(getActivity());
++            int size = 0;
++            try {
++                if (ks != null) {
++                    size = ks.size();
++                }
++            } catch (KeyStoreException e) {}
++
++            mSmartPGPAuthoritiesPreference.setSummary(getActivity().getResources().getQuantityString(R.plurals.n_authorities, size, size));
++
++            mSmartPGPAuthoritiesPreference
++                    .setOnPreferenceClickListener(new Preference.OnPreferenceClickListener() {
++                        public boolean onPreferenceClick(Preference preference) {
++                            Intent intent = new Intent(getActivity(),
++                                    SettingsSmartPGPAuthoritiesActivity.class);
++                            startActivityForResult(intent, REQUEST_CODE_SMARTPGP_AUTHORITIES_PREF);
++                            return false;
++                        }
++                    });
++        }
++
++        @Override
++        public void onActivityResult(int requestCode, int resultCode, Intent data) {
++            switch (requestCode) {
++                case REQUEST_CODE_SMARTPGP_AUTHORITIES_PREF: {
++                    // update preference, in case it changed
++                    final KeyStore ks = SettingsSmartPGPAuthoritiesActivity.readKeystore(getActivity());
++                    int size = 0;
++                    try {
++                        if (ks != null) {
++                            size = ks.size();
++                        }
++                    } catch (KeyStoreException e) {}
++
++                    mSmartPGPAuthoritiesPreference.setSummary(getActivity().getResources().getQuantityString(R.plurals.n_authorities, size, size));
++                    break;
++                }
++
++                default: {
++                    super.onActivityResult(requestCode, resultCode, data);
++                    break;
++                }
++            }
+         }
+ 
+         private static void initializeTheme(final ListPreference themePref) {
+diff --git a/OpenKeychain/src/main/java/org/sufficientlysecure/keychain/ui/SettingsSmartPGPAuthoritiesActivity.java b/OpenKeychain/src/main/java/org/sufficientlysecure/keychain/ui/SettingsSmartPGPAuthoritiesActivity.java
+new file mode 100644
+index 0000000..fe11fb6
+--- /dev/null
++++ b/OpenKeychain/src/main/java/org/sufficientlysecure/keychain/ui/SettingsSmartPGPAuthoritiesActivity.java
+@@ -0,0 +1,124 @@
++/*
++ * Copyright (C) 2010-2014 Thialfihar <thi@thialfihar.org>
++ *
++ * This program is free software: you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation, either version 3 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
++ */
++
++package org.sufficientlysecure.keychain.ui;
++
++import android.content.Context;
++import android.content.Intent;
++import android.os.Bundle;
++import android.view.MenuItem;
++
++import org.sufficientlysecure.keychain.R;
++import org.sufficientlysecure.keychain.ui.base.BaseActivity;
++
++import java.io.File;
++import java.io.FileInputStream;
++import java.io.FileNotFoundException;
++import java.io.FileOutputStream;
++import java.io.IOException;
++import java.security.KeyStore;
++import java.security.KeyStoreException;
++import java.security.NoSuchAlgorithmException;
++import java.security.cert.CertificateException;
++
++public class SettingsSmartPGPAuthoritiesActivity extends BaseActivity {
++
++    public static final String EXTRA_SMARTPGP_AUTHORITIES = "smartpgp_authorities";
++
++    private static final String KEYSTORE_FILE = "smartpgp_authorities.keystore";
++
++    @Override
++    public void onCreate(Bundle savedInstanceState) {
++        super.onCreate(savedInstanceState);
++
++        Intent intent = getIntent();
++        String authorities[] = intent.getStringArrayExtra(EXTRA_SMARTPGP_AUTHORITIES);
++        loadFragment(savedInstanceState, authorities);
++
++        getSupportActionBar().setDisplayHomeAsUpEnabled(true);
++
++    }
++
++    @Override
++    public boolean onOptionsItemSelected(MenuItem item) {
++        switch (item.getItemId()) {
++            case android.R.id.home:
++                finish();
++                return true;
++        }
++        return super.onOptionsItemSelected(item);
++    }
++
++    @Override
++    protected void initLayout() {
++        setContentView(R.layout.smartpgp_authorities_preference);
++    }
++
++    private void loadFragment(Bundle savedInstanceState, String[] authorities) {
++        // However, if we're being restored from a previous state,
++        // then we don't need to do anything and should return or else
++        // we could end up with overlapping fragments.
++        if (savedInstanceState != null) {
++            return;
++        }
++
++        SettingsSmartPGPAuthorityFragment fragment = SettingsSmartPGPAuthorityFragment.newInstance(authorities);
++
++        // Add the fragment to the 'fragment_container' FrameLayout
++        // NOTE: We use commitAllowingStateLoss() to prevent weird crashes!
++        getSupportFragmentManager().beginTransaction()
++                .replace(R.id.smartpgp_authorities_settings_fragment_container, fragment)
++                .commitAllowingStateLoss();
++        // do it immediately!
++        getSupportFragmentManager().executePendingTransactions();
++    }
++
++    public static final KeyStore readKeystore(final Context ctx) {
++        try {
++            final File kf = new File(ctx.getFilesDir(), KEYSTORE_FILE);
++            final KeyStore ks = KeyStore.getInstance(KeyStore.getDefaultType());
++
++            ks.load(null, null);
++
++            if (kf.exists()) {
++                final FileInputStream fis = new FileInputStream(kf);
++                ks.load(fis, null);
++                fis.close();
++            }
++
++            return ks;
++        } catch (Exception e) {
++            return null;
++        }
++    }
++
++    public static final void writeKeystore(final Context ctx, final KeyStore ks) {
++        try {
++            final File kf = new File(ctx.getFilesDir(), KEYSTORE_FILE);
++
++            if (kf.exists()) {
++                kf.delete();
++            }
++
++            final FileOutputStream fos = new FileOutputStream(kf);
++            ks.store(fos, null);
++            fos.flush();
++            fos.close();
++        } catch (Exception e) {
++        }
++    }
++}
+diff --git a/OpenKeychain/src/main/java/org/sufficientlysecure/keychain/ui/SettingsSmartPGPAuthorityFragment.java b/OpenKeychain/src/main/java/org/sufficientlysecure/keychain/ui/SettingsSmartPGPAuthorityFragment.java
+new file mode 100644
+index 0000000..f3dcca7
+--- /dev/null
++++ b/OpenKeychain/src/main/java/org/sufficientlysecure/keychain/ui/SettingsSmartPGPAuthorityFragment.java
+@@ -0,0 +1,334 @@
++/*
++ * Copyright (C) 2012-2015 Dominik Schürmann <dominik@dominikschuermann.de>
++ * Copyright (C) 2015 Adithya Abraham Philip <adithyaphilip@gmail.com>
++ *
++ * This program is free software: you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation, either version 3 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
++ */
++
++package org.sufficientlysecure.keychain.ui;
++
++import android.net.Uri;
++import android.os.Bundle;
++import android.os.Handler;
++import android.os.Message;
++import android.os.Messenger;
++import android.support.v4.app.Fragment;
++import android.support.v7.widget.LinearLayoutManager;
++import android.support.v7.widget.RecyclerView;
++import android.support.v7.widget.helper.ItemTouchHelper;
++import android.view.LayoutInflater;
++import android.view.Menu;
++import android.view.MenuInflater;
++import android.view.MenuItem;
++import android.view.View;
++import android.view.ViewGroup;
++import android.widget.TextView;
++
++import org.sufficientlysecure.keychain.R;
++import org.sufficientlysecure.keychain.ui.dialog.AddEditSmartPGPAuthorityDialogFragment;
++import org.sufficientlysecure.keychain.ui.util.Notify;
++import org.sufficientlysecure.keychain.ui.util.recyclerview.ItemTouchHelperAdapter;
++import org.sufficientlysecure.keychain.ui.util.recyclerview.ItemTouchHelperDragCallback;
++import org.sufficientlysecure.keychain.ui.util.recyclerview.ItemTouchHelperViewHolder;
++import org.sufficientlysecure.keychain.ui.util.recyclerview.RecyclerItemClickListener;
++
++import java.io.IOException;
++import java.io.InputStream;
++import java.security.KeyStore;
++import java.security.KeyStoreException;
++import java.security.cert.Certificate;
++import java.security.cert.CertificateException;
++import java.security.cert.CertificateFactory;
++import java.security.cert.X509Certificate;
++import java.util.ArrayList;
++import java.util.Collections;
++import java.util.Enumeration;
++import java.util.LinkedList;
++import java.util.List;
++
++
++public class SettingsSmartPGPAuthorityFragment extends Fragment implements RecyclerItemClickListener.OnItemClickListener {
++
++    private ItemTouchHelper mItemTouchHelper;
++
++    private ArrayList<String> mAuthorities;
++    private AuthorityListAdapter mAdapter;
++
++    public static SettingsSmartPGPAuthorityFragment newInstance(String[] authorities) {
++        return new SettingsSmartPGPAuthorityFragment();
++    }
++
++    @Override
++    public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle
++            savedInstanceState) {
++
++        return inflater.inflate(R.layout.settings_smartpgp_authority_fragment, null);
++    }
++
++    @Override
++    public void onViewCreated(View view, Bundle savedInstanceState) {
++        super.onViewCreated(view, savedInstanceState);
++
++        List<String> authorities = new LinkedList();
++
++        try {
++            final KeyStore ks = SettingsSmartPGPAuthoritiesActivity.readKeystore(getActivity());
++            final Enumeration<String> it = ks.aliases();
++
++            while (it.hasMoreElements()) {
++                authorities.add(it.nextElement());
++            }
++
++        } catch (Exception e) {
++        }
++
++        mAuthorities = new ArrayList<>(authorities);
++        mAdapter = new AuthorityListAdapter(mAuthorities);
++
++        RecyclerView recyclerView = (RecyclerView) view.findViewById(R.id.smartpgp_authority_recycler_view);
++        recyclerView.setAdapter(mAdapter);
++        recyclerView.setLayoutManager(new LinearLayoutManager(getActivity()));
++
++        ItemTouchHelper.Callback callback = new ItemTouchHelperDragCallback(mAdapter);
++        mItemTouchHelper = new ItemTouchHelper(callback);
++        mItemTouchHelper.attachToRecyclerView(recyclerView);
++
++        // for clicks
++        recyclerView.addOnItemTouchListener(new RecyclerItemClickListener(getActivity(), this));
++
++        // can't use item decoration because it doesn't move with drag and drop
++        // recyclerView.addItemDecoration(new DividerItemDecoration(getActivity(), null));
++
++        // We have a menu item to show in action bar.
++        setHasOptionsMenu(true);
++    }
++
++    @Override
++    public void onCreateOptionsMenu(final Menu menu, final MenuInflater inflater) {
++        inflater.inflate(R.menu.smartpgp_authority_pref_menu, menu);
++
++        super.onCreateOptionsMenu(menu, inflater);
++    }
++
++    @Override
++    public boolean onOptionsItemSelected(MenuItem item) {
++        switch (item.getItemId()) {
++
++            case R.id.menu_add_smartpgp_authority:
++                startAddAuthorityDialog();
++                return true;
++
++            default:
++                return super.onOptionsItemSelected(item);
++        }
++    }
++
++    private void startAddAuthorityDialog() {
++        startEditAuthorityDialog(AddEditSmartPGPAuthorityDialogFragment.Action.ADD, null, null, -1);
++    }
++
++    private void startEditAuthorityDialog(AddEditSmartPGPAuthorityDialogFragment.Action action,
++                                          final String old_alias, final Uri uri, final int position) {
++        Handler returnHandler = new Handler() {
++            @Override
++            public void handleMessage(Message message) {
++                Bundle data = message.getData();
++                final String new_alias = data.getString(AddEditSmartPGPAuthorityDialogFragment.OUT_ALIAS);
++                final int position = data.getInt(AddEditSmartPGPAuthorityDialogFragment.OUT_POSITION);
++                final String uri = data.getString(AddEditSmartPGPAuthorityDialogFragment.OUT_URI);
++
++                final AddEditSmartPGPAuthorityDialogFragment.Action action =
++                        (AddEditSmartPGPAuthorityDialogFragment.Action)
++                                data.getSerializable(AddEditSmartPGPAuthorityDialogFragment.OUT_ACTION);
++
++                switch(action) {
++                    case ADD:
++                        if (editAuthority(old_alias, new_alias, position, uri)) {
++                            Notify.create(getActivity(), "Authority " + new_alias + " added",
++                                    Notify.LENGTH_SHORT, Notify.Style.OK).show();
++                        }
++                        break;
++
++                    case EDIT:
++                        if (editAuthority(old_alias, new_alias, position, uri)){
++                            Notify.create(getActivity(), "Authority " + old_alias + " modified",
++                                    Notify.LENGTH_SHORT, Notify.Style.OK).show();
++                        }
++                        break;
++
++                    case DELETE:
++                        if (deleteAuthority(position)) {
++                            Notify.create(getActivity(), "Authority " + old_alias + " deleted",
++                                    Notify.LENGTH_SHORT, Notify.Style.OK).show();
++                        }
++                        break;
++
++                }
++            }
++        };
++
++        // Create a new Messenger for the communication back
++        Messenger messenger = new Messenger(returnHandler);
++        AddEditSmartPGPAuthorityDialogFragment dialogFragment = AddEditSmartPGPAuthorityDialogFragment
++                .newInstance(messenger, action, old_alias, uri, position);
++        dialogFragment.show(getFragmentManager(), "addSmartPGPAuthorityDialog");
++    }
++
++
++    private boolean editAuthority(final String old_alias, final String new_alias, final int position, final String uri) {
++        try {
++            final KeyStore ks = SettingsSmartPGPAuthoritiesActivity.readKeystore(getContext());
++
++            if (ks == null) {
++                throw new KeyStoreException("no keystore found");
++            }
++
++            Certificate old_cert = null;
++            if (old_alias != null) {
++                old_cert = ks.getCertificate(old_alias);
++                ks.deleteEntry(old_alias);
++                mAuthorities.remove(old_alias);
++                mAdapter.notifyItemRemoved(position);
++            }
++
++            Certificate new_cert = null;
++            if (uri == null) {
++                new_cert = old_cert;
++            } else {
++                final InputStream fis = getContext().getContentResolver().openInputStream(Uri.parse(uri));
++
++                final CertificateFactory cf = CertificateFactory.getInstance("X.509");
++                new_cert = cf.generateCertificate(fis);
++                if (!(new_cert instanceof X509Certificate)) {
++                    Notify.create(getActivity(), "Invalid certificate", Notify.LENGTH_LONG, Notify.Style.ERROR).show();
++                    return false;
++                }
++
++                fis.close();
++            }
++
++            if (new_alias == null || new_cert == null) {
++                Notify.create(getActivity(), "Missing alias or certificate", Notify.LENGTH_LONG, Notify.Style.ERROR).show();
++                return false;
++            }
++
++            final X509Certificate x509cert = (X509Certificate)new_cert;
++
++            x509cert.checkValidity();
++
++            ks.setCertificateEntry(new_alias, x509cert);
++
++            SettingsSmartPGPAuthoritiesActivity.writeKeystore(getContext(), ks);
++
++            mAuthorities.add(new_alias);
++            mAdapter.notifyItemInserted(mAuthorities.size() - 1);
++
++            return true;
++
++        } catch (IOException e) {
++            Notify.create(getActivity(), "failed to open certificate (" + e.getMessage() + ")", Notify.LENGTH_LONG, Notify.Style.ERROR).show();
++        } catch (CertificateException e) {
++            Notify.create(getActivity(), "invalid certificate (" + e.getMessage() + ")", Notify.LENGTH_LONG, Notify.Style.ERROR).show();
++        } catch (KeyStoreException e) {
++            Notify.create(getActivity(), "invalid keystore (" + e.getMessage() + ")", Notify.LENGTH_LONG, Notify.Style.ERROR).show();
++        }
++
++        return false;
++    }
++
++    private boolean deleteAuthority(final int position) {
++        try {
++            final KeyStore ks = SettingsSmartPGPAuthoritiesActivity.readKeystore(getContext());
++
++            if (ks == null) {
++                return false;
++            }
++
++            ks.deleteEntry(mAuthorities.get(position));
++
++            SettingsSmartPGPAuthoritiesActivity.writeKeystore(getContext(), ks);
++
++            mAuthorities.remove(mAuthorities.get(position));
++            mAdapter.notifyItemRemoved(position);
++
++            return true;
++        } catch (Exception e) {
++            return false;
++        }
++    }
++
++    @Override
++    public void onItemClick(View view, int position) {
++        startEditAuthorityDialog(AddEditSmartPGPAuthorityDialogFragment.Action.EDIT,
++                                mAuthorities.get(position), null, position);
++    }
++
++
++    public class AuthorityListAdapter extends RecyclerView.Adapter<AuthorityListAdapter.ViewHolder>
++            implements ItemTouchHelperAdapter {
++
++        private final List<String> mAuthorities;
++
++        public AuthorityListAdapter(List<String> authorities) {
++            mAuthorities = authorities;
++        }
++
++        @Override
++        public ViewHolder onCreateViewHolder(ViewGroup parent, int viewType) {
++            View view = LayoutInflater.from(parent.getContext())
++                    .inflate(R.layout.settings_smartpgp_authority_item, parent, false);
++            return new ViewHolder(view);
++        }
++
++        @Override
++        public void onBindViewHolder(final ViewHolder holder, int position) {
++            holder.authorityName.setText(mAuthorities.get(position));
++        }
++
++        @Override
++        public void onItemMove(RecyclerView.ViewHolder source, RecyclerView.ViewHolder target,
++                               int fromPosition, int toPosition) {
++            Collections.swap(mAuthorities, fromPosition, toPosition);
++            notifyItemMoved(fromPosition, toPosition);
++        }
++
++        @Override
++        public int getItemCount() {
++            return mAuthorities.size();
++        }
++
++
++        public class ViewHolder extends RecyclerView.ViewHolder implements
++                ItemTouchHelperViewHolder {
++
++            public final ViewGroup outerLayout;
++            public final TextView authorityName;
++
++            public ViewHolder(View itemView) {
++                super(itemView);
++                outerLayout = (ViewGroup) itemView.findViewById(R.id.outer_layout);
++                authorityName = (TextView) itemView.findViewById(R.id.smartpgp_authority_tv);
++                itemView.setClickable(true);
++            }
++
++            @Override
++            public void onItemSelected() {
++            }
++
++            @Override
++            public void onItemClear() {
++            }
++        }
++    }
++}
+diff --git a/OpenKeychain/src/main/java/org/sufficientlysecure/keychain/ui/ViewKeyActivity.java b/OpenKeychain/src/main/java/org/sufficientlysecure/keychain/ui/ViewKeyActivity.java
+index 4dceb94..feceb18 100644
+--- a/OpenKeychain/src/main/java/org/sufficientlysecure/keychain/ui/ViewKeyActivity.java
++++ b/OpenKeychain/src/main/java/org/sufficientlysecure/keychain/ui/ViewKeyActivity.java
+@@ -110,6 +110,7 @@ public class ViewKeyActivity extends BaseSecurityTokenActivity implements
+ 
+     public static final String EXTRA_SECURITY_TOKEN_USER_ID = "security_token_user_id";
+     public static final String EXTRA_SECURITY_TOKEN_AID = "security_token_aid";
++    public static final String EXTRA_SECURITY_TOKEN_VERSION = "security_token_version";
+     public static final String EXTRA_SECURITY_TOKEN_FINGERPRINTS = "security_token_fingerprints";
+ 
+     @Retention(RetentionPolicy.SOURCE)
+@@ -175,6 +176,7 @@ public class ViewKeyActivity extends BaseSecurityTokenActivity implements
+     private byte[] mSecurityTokenFingerprints;
+     private String mSecurityTokenUserId;
+     private byte[] mSecurityTokenAid;
++    private double mSecurityTokenVersion;
+ 
+     @SuppressLint("InflateParams")
+     @Override
+@@ -668,7 +670,7 @@ public class ViewKeyActivity extends BaseSecurityTokenActivity implements
+ 
+             // if the master key of that key matches this one, just show the token dialog
+             if (KeyFormattingUtils.convertFingerprintToHex(candidateFp).equals(mFingerprintString)) {
+-                showSecurityTokenFragment(mSecurityTokenFingerprints, mSecurityTokenUserId, mSecurityTokenAid);
++                showSecurityTokenFragment(mSecurityTokenFingerprints, mSecurityTokenUserId, mSecurityTokenAid, mSecurityTokenVersion);
+                 return;
+             }
+ 
+@@ -682,6 +684,7 @@ public class ViewKeyActivity extends BaseSecurityTokenActivity implements
+                                     ViewKeyActivity.this, ViewKeyActivity.class);
+                             intent.setData(KeyRings.buildGenericKeyRingUri(masterKeyId));
+                             intent.putExtra(ViewKeyActivity.EXTRA_SECURITY_TOKEN_AID, mSecurityTokenAid);
++                            intent.putExtra(ViewKeyActivity.EXTRA_SECURITY_TOKEN_VERSION, mSecurityTokenVersion);
+                             intent.putExtra(ViewKeyActivity.EXTRA_SECURITY_TOKEN_USER_ID, mSecurityTokenUserId);
+                             intent.putExtra(ViewKeyActivity.EXTRA_SECURITY_TOKEN_FINGERPRINTS, mSecurityTokenFingerprints);
+                             startActivity(intent);
+@@ -697,6 +700,7 @@ public class ViewKeyActivity extends BaseSecurityTokenActivity implements
+                             Intent intent = new Intent(
+                                     ViewKeyActivity.this, CreateKeyActivity.class);
+                             intent.putExtra(ViewKeyActivity.EXTRA_SECURITY_TOKEN_AID, mSecurityTokenAid);
++                            intent.putExtra(ViewKeyActivity.EXTRA_SECURITY_TOKEN_VERSION, mSecurityTokenVersion);
+                             intent.putExtra(ViewKeyActivity.EXTRA_SECURITY_TOKEN_USER_ID, mSecurityTokenUserId);
+                             intent.putExtra(ViewKeyActivity.EXTRA_SECURITY_TOKEN_FINGERPRINTS, mSecurityTokenFingerprints);
+                             startActivity(intent);
+@@ -707,13 +711,13 @@ public class ViewKeyActivity extends BaseSecurityTokenActivity implements
+     }
+ 
+     public void showSecurityTokenFragment(
+-            final byte[] tokenFingerprints, final String tokenUserId, final byte[] tokenAid) {
++            final byte[] tokenFingerprints, final String tokenUserId, final byte[] tokenAid, final double tokenVersion) {
+ 
+         new Handler().post(new Runnable() {
+             @Override
+             public void run() {
+                 ViewKeySecurityTokenFragment frag = ViewKeySecurityTokenFragment.newInstance(
+-                        mMasterKeyId, tokenFingerprints, tokenUserId, tokenAid);
++                        mMasterKeyId, tokenFingerprints, tokenUserId, tokenAid, tokenVersion);
+ 
+                 FragmentManager manager = getSupportFragmentManager();
+ 
+@@ -896,7 +900,8 @@ public class ViewKeyActivity extends BaseSecurityTokenActivity implements
+                         byte[] tokenFingerprints = intent.getByteArrayExtra(EXTRA_SECURITY_TOKEN_FINGERPRINTS);
+                         String tokenUserId = intent.getStringExtra(EXTRA_SECURITY_TOKEN_USER_ID);
+                         byte[] tokenAid = intent.getByteArrayExtra(EXTRA_SECURITY_TOKEN_AID);
+-                        showSecurityTokenFragment(tokenFingerprints, tokenUserId, tokenAid);
++                        double tokenVersion = intent.getDoubleExtra(EXTRA_SECURITY_TOKEN_VERSION, 2.0);
++                        showSecurityTokenFragment(tokenFingerprints, tokenUserId, tokenAid, tokenVersion);
+                     }
+ 
+                     mIsSecret = data.getInt(INDEX_HAS_ANY_SECRET) != 0;
+diff --git a/OpenKeychain/src/main/java/org/sufficientlysecure/keychain/ui/ViewKeyAdvSubkeysFragment.java b/OpenKeychain/src/main/java/org/sufficientlysecure/keychain/ui/ViewKeyAdvSubkeysFragment.java
+index 93b38af..e70ac5a 100644
+--- a/OpenKeychain/src/main/java/org/sufficientlysecure/keychain/ui/ViewKeyAdvSubkeysFragment.java
++++ b/OpenKeychain/src/main/java/org/sufficientlysecure/keychain/ui/ViewKeyAdvSubkeysFragment.java
+@@ -39,6 +39,8 @@ import android.widget.AdapterView;
+ import android.widget.ListView;
+ import android.widget.ViewAnimator;
+ 
++import org.bouncycastle.asn1.ASN1ObjectIdentifier;
++import org.bouncycastle.asn1.nist.NISTNamedCurves;
+ import org.bouncycastle.bcpg.PublicKeyAlgorithmTags;
+ import org.sufficientlysecure.keychain.Constants;
+ import org.sufficientlysecure.keychain.R;
+@@ -356,19 +358,31 @@ public class ViewKeyAdvSubkeysFragment extends LoaderFragment implements
+                             break;
+                         }
+ 
+-                        int algorithm = mSubkeysAdapter.getAlgorithm(position);
+-                        if (algorithm != PublicKeyAlgorithmTags.RSA_GENERAL
+-                                && algorithm != PublicKeyAlgorithmTags.RSA_ENCRYPT
+-                                && algorithm != PublicKeyAlgorithmTags.RSA_SIGN) {
+-                            Notify.create(getActivity(), R.string.edit_key_error_bad_security_token_algo, Notify.Style.ERROR)
+-                                    .show();
+-                            break;
+-                        }
+-
+-                        if (mSubkeysAdapter.getKeySize(position) != 2048) {
+-                            Notify.create(getActivity(), R.string.edit_key_error_bad_security_token_size, Notify.Style.ERROR)
+-                                    .show();
+-                            break;
++                        switch (mSubkeysAdapter.getAlgorithm(position)) {
++                            case PublicKeyAlgorithmTags.RSA_GENERAL:
++                            case PublicKeyAlgorithmTags.RSA_ENCRYPT:
++                            case PublicKeyAlgorithmTags.RSA_SIGN:
++                                if (mSubkeysAdapter.getKeySize(position) < 2048) {
++                                    Notify.create(getActivity(), R.string.edit_key_error_bad_security_token_size, Notify.Style.ERROR)
++                                            .show();
++                                }
++                                break;
++
++                            case PublicKeyAlgorithmTags.ECDH:
++                            case PublicKeyAlgorithmTags.ECDSA:
++                                final ASN1ObjectIdentifier curve = NISTNamedCurves.getOID(mSubkeysAdapter.getCurveOid(position));
++                                if (!curve.equals(NISTNamedCurves.getOID("P-256")) &&
++                                        !curve.equals(NISTNamedCurves.getOID("P-384")) &&
++                                        !curve.equals(NISTNamedCurves.getOID("P-521"))) {
++                                    Notify.create(getActivity(), R.string.edit_key_error_bad_security_token_curve, Notify.Style.ERROR)
++                                            .show();
++                                }
++                                break;
++
++                            default:
++                                Notify.create(getActivity(), R.string.edit_key_error_bad_security_token_algo, Notify.Style.ERROR)
++                                        .show();
++                                break;
+                         }
+ 
+                         SubkeyChange change;
+diff --git a/OpenKeychain/src/main/java/org/sufficientlysecure/keychain/ui/ViewKeySecurityTokenFragment.java b/OpenKeychain/src/main/java/org/sufficientlysecure/keychain/ui/ViewKeySecurityTokenFragment.java
+index 8b77341..e142656 100644
+--- a/OpenKeychain/src/main/java/org/sufficientlysecure/keychain/ui/ViewKeySecurityTokenFragment.java
++++ b/OpenKeychain/src/main/java/org/sufficientlysecure/keychain/ui/ViewKeySecurityTokenFragment.java
+@@ -52,10 +52,12 @@ public class ViewKeySecurityTokenFragment
+     public static final String ARG_FINGERPRINT = "fingerprint";
+     public static final String ARG_USER_ID = "user_id";
+     public static final String ARG_CARD_AID = "aid";
++    public static final String ARG_CARD_VERSION = "version";
+ 
+     private byte[][] mFingerprints;
+     private String mUserId;
+     private byte[] mCardAid;
++    private double mCardVersion;
+     private long mMasterKeyId;
+     private long[] mSubKeyIds;
+ 
+@@ -63,7 +65,7 @@ public class ViewKeySecurityTokenFragment
+     private TextView vStatus;
+ 
+     public static ViewKeySecurityTokenFragment newInstance(long masterKeyId,
+-            byte[] fingerprints, String userId, byte[] aid) {
++            byte[] fingerprints, String userId, byte[] aid, double version) {
+         ViewKeySecurityTokenFragment frag = new ViewKeySecurityTokenFragment();
+ 
+         Bundle args = new Bundle();
+@@ -71,6 +73,7 @@ public class ViewKeySecurityTokenFragment
+         args.putByteArray(ARG_FINGERPRINT, fingerprints);
+         args.putString(ARG_USER_ID, userId);
+         args.putByteArray(ARG_CARD_AID, aid);
++        args.putDouble(ARG_CARD_VERSION, version);
+         frag.setArguments(args);
+ 
+         return frag;
+@@ -93,6 +96,7 @@ public class ViewKeySecurityTokenFragment
+         }
+         mUserId = args.getString(ARG_USER_ID);
+         mCardAid = args.getByteArray(ARG_CARD_AID);
++        mCardVersion = args.getDouble(ARG_CARD_VERSION);
+ 
+         mMasterKeyId = args.getLong(ARG_MASTER_KEY_ID);
+ 
+diff --git a/OpenKeychain/src/main/java/org/sufficientlysecure/keychain/ui/adapter/SubkeysAdapter.java b/OpenKeychain/src/main/java/org/sufficientlysecure/keychain/ui/adapter/SubkeysAdapter.java
+index b5ef1d5..ba288ea 100644
+--- a/OpenKeychain/src/main/java/org/sufficientlysecure/keychain/ui/adapter/SubkeysAdapter.java
++++ b/OpenKeychain/src/main/java/org/sufficientlysecure/keychain/ui/adapter/SubkeysAdapter.java
+@@ -121,6 +121,11 @@ public class SubkeysAdapter extends CursorAdapter {
+         return mCursor.getInt(INDEX_KEY_SIZE);
+     }
+ 
++    public String getCurveOid(int position) {
++        mCursor.moveToPosition(position);
++        return mCursor.getString(INDEX_KEY_CURVE_OID);
++    }
++
+     public SecretKeyType getSecretKeyType(int position) {
+         mCursor.moveToPosition(position);
+         return SecretKeyType.fromNum(mCursor.getInt(INDEX_HAS_SECRET));
+diff --git a/OpenKeychain/src/main/java/org/sufficientlysecure/keychain/ui/base/BaseSecurityTokenActivity.java b/OpenKeychain/src/main/java/org/sufficientlysecure/keychain/ui/base/BaseSecurityTokenActivity.java
+index 72216bd..5cf8eb0 100644
+--- a/OpenKeychain/src/main/java/org/sufficientlysecure/keychain/ui/base/BaseSecurityTokenActivity.java
++++ b/OpenKeychain/src/main/java/org/sufficientlysecure/keychain/ui/base/BaseSecurityTokenActivity.java
+@@ -91,9 +91,9 @@ public abstract class BaseSecurityTokenActivity extends BaseActivity
+      * Override to implement SecurityToken operations (background thread)
+      */
+     protected void doSecurityTokenInBackground() throws IOException {
++        mSecurityTokenAid = mSecurityTokenHelper.getAid();
+         mSecurityTokenFingerprints = mSecurityTokenHelper.getFingerprints();
+         mSecurityTokenUserId = mSecurityTokenHelper.getUserId();
+-        mSecurityTokenAid = mSecurityTokenHelper.getAid();
+     }
+ 
+     /**
+@@ -168,7 +168,7 @@ public abstract class BaseSecurityTokenActivity extends BaseActivity
+             @Override
+             protected IOException doInBackground(Void... params) {
+                 try {
+-                    handleSecurityToken(transport);
++                    handleSecurityToken(transport, BaseSecurityTokenActivity.this);
+                 } catch (IOException e) {
+                     return e;
+                 }
+@@ -428,13 +428,13 @@ public abstract class BaseSecurityTokenActivity extends BaseActivity
+         }
+     }
+ 
+-    protected void handleSecurityToken(Transport transport) throws IOException {
++    protected void handleSecurityToken(Transport transport, Context ctx) throws IOException {
+         // Don't reconnect if device was already connected
+         if (!(mSecurityTokenHelper.isPersistentConnectionAllowed()
+                 && mSecurityTokenHelper.isConnected()
+                 && mSecurityTokenHelper.getTransport().equals(transport))) {
+             mSecurityTokenHelper.setTransport(transport);
+-            mSecurityTokenHelper.connectToDevice();
++            mSecurityTokenHelper.connectToDevice(ctx);
+         }
+         doSecurityTokenInBackground();
+     }
+diff --git a/OpenKeychain/src/main/java/org/sufficientlysecure/keychain/ui/dialog/AddEditSmartPGPAuthorityDialogFragment.java b/OpenKeychain/src/main/java/org/sufficientlysecure/keychain/ui/dialog/AddEditSmartPGPAuthorityDialogFragment.java
+new file mode 100644
+index 0000000..b35279c
+--- /dev/null
++++ b/OpenKeychain/src/main/java/org/sufficientlysecure/keychain/ui/dialog/AddEditSmartPGPAuthorityDialogFragment.java
+@@ -0,0 +1,313 @@
++/*
++ * Copyright (C) 2012-2014 Dominik Schürmann <dominik@dominikschuermann.de>
++ *
++ * This program is free software: you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation, either version 3 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
++ */
++
++package org.sufficientlysecure.keychain.ui.dialog;
++
++
++import android.app.Activity;
++import android.app.Dialog;
++import android.content.Context;
++import android.content.DialogInterface;
++import android.content.Intent;
++import android.net.Uri;
++import android.os.Bundle;
++import android.os.Message;
++import android.os.Messenger;
++import android.os.RemoteException;
++import android.support.annotation.NonNull;
++import android.support.design.widget.TextInputLayout;
++import android.support.v4.app.DialogFragment;
++import android.support.v7.app.AlertDialog;
++import android.view.KeyEvent;
++import android.view.LayoutInflater;
++import android.view.View;
++import android.view.inputmethod.EditorInfo;
++import android.view.inputmethod.InputMethodManager;
++import android.widget.Button;
++import android.widget.EditText;
++import android.widget.TextView;
++import android.widget.TextView.OnEditorActionListener;
++
++import org.sufficientlysecure.keychain.Constants;
++import org.sufficientlysecure.keychain.R;
++import org.sufficientlysecure.keychain.ui.EncryptFilesFragment;
++import org.sufficientlysecure.keychain.util.FileHelper;
++import org.sufficientlysecure.keychain.util.Log;
++
++
++public class AddEditSmartPGPAuthorityDialogFragment extends DialogFragment implements OnEditorActionListener {
++    private static final String IN_MESSENGER = "in_messenger";
++    private static final String IN_ACTION = "in_dialog_action";
++    private static final String IN_POSITION = "in_position";
++    private static final String IN_ALIAS = "in_authority";
++    private static final String IN_URI = "in_uri";
++
++    public static final String OUT_ACTION = "out_action";
++    public static final String OUT_ALIAS = "out_alias";
++    public static final String OUT_POSITION = "out_position";
++    public static final String OUT_URI = "out_uri";
++
++    private Messenger mMessenger;
++    private Action mAction;
++    private int mPosition;
++    private Uri mURI;
++
++    private EditText mAuthorityAliasText;
++    private TextInputLayout mAuthorityAliasTextLayout;
++    private Button mAuthorityAdd;
++
++    public enum Action {
++        ADD,
++        EDIT,
++        DELETE
++    }
++
++    public static AddEditSmartPGPAuthorityDialogFragment newInstance(Messenger messenger,
++                                                                     Action action,
++                                                                     String alias,
++                                                                     Uri uri,
++                                                                     int position) {
++        AddEditSmartPGPAuthorityDialogFragment frag = new AddEditSmartPGPAuthorityDialogFragment();
++        Bundle args = new Bundle();
++        args.putParcelable(IN_MESSENGER, messenger);
++        args.putSerializable(IN_ACTION, action);
++        args.putString(IN_ALIAS, alias);
++        args.putInt(IN_POSITION, position);
++        if (uri != null) {
++            args.putString(IN_URI, uri.toString());
++        }
++
++        frag.setArguments(args);
++
++        return frag;
++    }
++
++    @NonNull
++    @Override
++    public Dialog onCreateDialog(Bundle savedInstanceState) {
++        final Activity activity = getActivity();
++
++        mMessenger = getArguments().getParcelable(IN_MESSENGER);
++        mAction = (Action) getArguments().getSerializable(IN_ACTION);
++        mPosition = getArguments().getInt(IN_POSITION);
++        if (getArguments().getString(IN_URI) == null)
++            mURI = null;
++        else
++            mURI = Uri.parse(getArguments().getString(IN_URI));
++
++        CustomAlertDialogBuilder alert = new CustomAlertDialogBuilder(activity);
++
++        LayoutInflater inflater = activity.getLayoutInflater();
++        View view = inflater.inflate(R.layout.add_smartpgp_authority_dialog, null);
++        alert.setView(view);
++
++        mAuthorityAliasText = (EditText) view.findViewById(R.id.smartpgp_authority_alias_edit_text);
++        mAuthorityAliasTextLayout = (TextInputLayout) view.findViewById(R.id.smartpgp_authority_alias_edit_text_layout);
++        mAuthorityAdd = (Button) view.findViewById(R.id.smartpgp_authority_filename);
++
++        mAuthorityAdd.setOnClickListener(new View.OnClickListener() {
++            @Override
++            public void onClick(View view) {
++                FileHelper.openDocument(AddEditSmartPGPAuthorityDialogFragment.this, null, "*/*", false,
++                                        EncryptFilesFragment.REQUEST_CODE_INPUT);
++            }
++        });
++
++        mAuthorityAliasText.setText(getArguments().getString(IN_ALIAS));
++
++        switch (mAction) {
++            case ADD:
++                alert.setTitle(R.string.add_smartpgp_authority_dialog_title);
++                break;
++            case EDIT:
++            case DELETE:
++                alert.setTitle(R.string.show_smartpgp_authority_dialog_title);
++                break;
++        }
++
++        // we don't want dialog to be dismissed on click for keyserver addition or edit,
++        // thereby requiring the hack seen below and in onStart
++        alert.setPositiveButton(android.R.string.ok, new DialogInterface.OnClickListener() {
++            @Override
++            public void onClick(DialogInterface dialog, int id) {
++                // we need to have an empty listener to prevent errors on some devices as mentioned
++                // at http://stackoverflow.com/q/13746412/3000919
++                // actual listener set in onStart for adding keyservers or editing them
++                dismiss();
++            }
++        });
++
++        alert.setNegativeButton(android.R.string.cancel, new DialogInterface.OnClickListener() {
++
++            @Override
++            public void onClick(DialogInterface dialog, int id) {
++                dismiss();
++            }
++        });
++
++        switch (mAction) {
++            case EDIT:
++            case DELETE:
++                alert.setNeutralButton(R.string.label_smartpgp_authority_dialog_delete,
++                        new DialogInterface.OnClickListener() {
++                            @Override
++                            public void onClick(DialogInterface dialog, int which) {
++                                deleteAuthority();
++                            }
++                        });
++                break;
++        }
++
++        // Hack to open keyboard.
++        // This is the only method that I found to work across all Android versions
++        // http://turbomanage.wordpress.com/2012/05/02/show-soft-keyboard-automatically-when-edittext-receives-focus/
++        // Notes: * onCreateView can't be used because we want to add buttons to the dialog
++        //        * opening in onActivityCreated does not work on Android 4.4
++        mAuthorityAliasText.setOnFocusChangeListener(new View.OnFocusChangeListener() {
++            @Override
++            public void onFocusChange(View v, boolean hasFocus) {
++                mAuthorityAliasText.post(new Runnable() {
++                    @Override
++                    public void run() {
++                        InputMethodManager imm = (InputMethodManager) getActivity()
++                                .getSystemService(Context.INPUT_METHOD_SERVICE);
++                        imm.showSoftInput(mAuthorityAliasText, InputMethodManager.SHOW_IMPLICIT);
++                    }
++                });
++            }
++        });
++        mAuthorityAliasText.requestFocus();
++
++        mAuthorityAliasText.setImeActionLabel(getString(android.R.string.ok),
++                                                EditorInfo.IME_ACTION_DONE);
++        mAuthorityAliasText.setOnEditorActionListener(this);
++
++        return alert.show();
++    }
++
++    @Override
++    public void onActivityResult(int requestCode, int resultCode, Intent data) {
++        switch (requestCode) {
++            case EncryptFilesFragment.REQUEST_CODE_INPUT:
++                if (data != null) {
++                    mURI = data.getData();
++                } else {
++                    mURI = null;
++                }
++                break;
++        }
++    }
++
++    @Override
++    public void onStart() {
++        super.onStart();
++        AlertDialog addKeyserverDialog = (AlertDialog) getDialog();
++        if (addKeyserverDialog != null) {
++            Button positiveButton = addKeyserverDialog.getButton(Dialog.BUTTON_POSITIVE);
++            positiveButton.setOnClickListener(new View.OnClickListener() {
++                @Override
++                public void onClick(View v) {
++                    mAuthorityAliasTextLayout.setErrorEnabled(false);
++
++                    dismiss();
++                    // return unverified keyserver back to activity
++                    authorityEdited();
++                }
++            });
++        }
++    }
++
++    public void authorityEdited() {
++        dismiss();
++        Bundle data = new Bundle();
++        data.putSerializable(OUT_ACTION, mAction);
++        data.putString(OUT_ALIAS,  mAuthorityAliasText.getText().toString());
++        data.putInt(OUT_POSITION, mPosition);
++        if (mURI != null) {
++            data.putString(OUT_URI, mURI.toString());
++        }
++
++        sendMessageToHandler(data);
++    }
++
++    public void deleteAuthority() {
++        dismiss();
++        Bundle data = new Bundle();
++        data.putSerializable(OUT_ACTION, Action.DELETE);
++        data.putString(OUT_ALIAS, mAuthorityAliasText.getText().toString());
++        data.putInt(OUT_POSITION, mPosition);
++
++        sendMessageToHandler(data);
++    }
++
++    @Override
++    public void onDismiss(DialogInterface dialog) {
++        // hide keyboard on dismiss
++        hideKeyboard();
++
++        super.onDismiss(dialog);
++    }
++
++    private void hideKeyboard() {
++        if (getActivity() == null) {
++            return;
++        }
++        InputMethodManager inputManager = (InputMethodManager) getActivity()
++                .getSystemService(Context.INPUT_METHOD_SERVICE);
++
++        //check if no view has focus:
++        View v = getActivity().getCurrentFocus();
++        if (v == null)
++            return;
++
++        inputManager.hideSoftInputFromWindow(v.getWindowToken(), 0);
++    }
++
++    /**
++     * Associate the "done" button on the soft keyboard with the okay button in the view
++     */
++    @Override
++    public boolean onEditorAction(TextView v, int actionId, KeyEvent event) {
++        if (EditorInfo.IME_ACTION_DONE == actionId) {
++            AlertDialog dialog = ((AlertDialog) getDialog());
++            Button bt = dialog.getButton(AlertDialog.BUTTON_POSITIVE);
++
++            bt.performClick();
++            return true;
++        }
++        return false;
++    }
++
++    /**
++     * Send message back to handler which is initialized in a activity
++     *
++     */
++    private void sendMessageToHandler(Bundle data) {
++        Message msg = Message.obtain();
++        if (data != null) {
++            msg.setData(data);
++        }
++
++        try {
++            mMessenger.send(msg);
++        } catch (RemoteException e) {
++            Log.w(Constants.TAG, "Exception sending message, Is handler present?", e);
++        } catch (NullPointerException e) {
++            Log.w(Constants.TAG, "Messenger is null!", e);
++        }
++    }
++}
+diff --git a/OpenKeychain/src/main/java/org/sufficientlysecure/keychain/util/Preferences.java b/OpenKeychain/src/main/java/org/sufficientlysecure/keychain/util/Preferences.java
+index 6a6d8d1..cc6ecfe 100644
+--- a/OpenKeychain/src/main/java/org/sufficientlysecure/keychain/util/Preferences.java
++++ b/OpenKeychain/src/main/java/org/sufficientlysecure/keychain/util/Preferences.java
+@@ -34,7 +34,6 @@ import org.sufficientlysecure.keychain.Constants.Pref;
+ import org.sufficientlysecure.keychain.KeychainApplication;
+ import org.sufficientlysecure.keychain.R;
+ import org.sufficientlysecure.keychain.service.KeyserverSyncAdapterService;
+-import org.sufficientlysecure.keychain.util.orbot.OrbotStatusReceiver;
+ 
+ import java.io.Serializable;
+ import java.net.Proxy;
+@@ -466,6 +465,10 @@ public class Preferences {
+         return mSharedPreferences.getBoolean(Pref.EXPERIMENTAL_ENABLE_KEYBASE, false);
+     }
+ 
++    public boolean getExperimentalSmartPGPAuthoritiesEnable() {
++        return mSharedPreferences.getBoolean(Pref.EXPERIMENTAL_SMARTPGP_VERIFY_AUTHORITY, false);
++    }
++
+     public void upgradePreferences(Context context) {
+         if (mSharedPreferences.getInt(Constants.Pref.PREF_DEFAULT_VERSION, 0) !=
+                 Constants.Defaults.PREF_VERSION) {
+diff --git a/OpenKeychain/src/main/java/org/sufficientlysecure/keychain/util/SecurityTokenUtils.java b/OpenKeychain/src/main/java/org/sufficientlysecure/keychain/util/SecurityTokenUtils.java
+index 2f959f9..4066aed 100644
+--- a/OpenKeychain/src/main/java/org/sufficientlysecure/keychain/util/SecurityTokenUtils.java
++++ b/OpenKeychain/src/main/java/org/sufficientlysecure/keychain/util/SecurityTokenUtils.java
+@@ -17,19 +17,61 @@
+ 
+ package org.sufficientlysecure.keychain.util;
+ 
++import org.bouncycastle.asn1.ASN1ObjectIdentifier;
+ import org.bouncycastle.util.Arrays;
+ import org.bouncycastle.util.encoders.Hex;
+-import org.sufficientlysecure.keychain.securitytoken.KeyFormat;
++import org.sufficientlysecure.keychain.pgp.CanonicalizedSecretKey;
++import org.sufficientlysecure.keychain.pgp.exception.PgpGeneralException;
++import org.sufficientlysecure.keychain.securitytoken.ECKeyFormat;
++import org.sufficientlysecure.keychain.securitytoken.RSAKeyFormat;
+ import org.sufficientlysecure.keychain.securitytoken.KeyType;
+ 
+ import java.io.ByteArrayOutputStream;
+ import java.io.IOException;
+ import java.math.BigInteger;
++import java.security.interfaces.ECPrivateKey;
++import java.security.interfaces.ECPublicKey;
+ import java.security.interfaces.RSAPrivateCrtKey;
+ 
+ public class SecurityTokenUtils {
+-    public static byte[] createPrivKeyTemplate(RSAPrivateCrtKey secretKey, KeyType slot,
+-                                               KeyFormat format) throws IOException {
++    public static byte[] attributesFromSecretKey(final KeyType slot, final CanonicalizedSecretKey secretKey) throws IOException, PgpGeneralException {
++        if (secretKey.isRSA()) {
++            final int mModulusLength = secretKey.getBitStrength();
++            final int mExponentLength = secretKey.getCrtSecretKey().getPublicExponent().bitLength();
++            final byte[] attrs = new byte[6];
++            int i = 0;
++
++            attrs[i++] = (byte)0x01;
++            attrs[i++] = (byte)((mModulusLength >> 8) & 0xff);
++            attrs[i++] = (byte)(mModulusLength & 0xff);
++            attrs[i++] = (byte)((mExponentLength >> 8) & 0xff);
++            attrs[i++] = (byte)(mExponentLength & 0xff);
++            attrs[i++] = RSAKeyFormat.RSAAlgorithmFormat.CRT_WITH_MODULUS.getValue();
++
++            return attrs;
++        } else if (secretKey.isEC()) {
++            final byte[] oid = new ASN1ObjectIdentifier(secretKey.getCurveOid()).getEncoded();
++            final byte[] attrs = new byte[1 + (oid.length - 2) + 1];
++
++            if (slot.equals(KeyType.SIGN))
++                attrs[0] = ECKeyFormat.ECAlgorithmFormat.ECDSA_WITH_PUBKEY.getValue();
++            else {
++                attrs[0] = ECKeyFormat.ECAlgorithmFormat.ECDH_WITH_PUBKEY.getValue();
++            }
++
++            System.arraycopy(oid, 2, attrs, 1, (oid.length - 2));
++
++            attrs[attrs.length - 1] = (byte)0xff;
++
++            return attrs;
++        } else {
++            throw new IOException("Unsupported key type");
++        }
++    }
++
++
++    public static byte[] createRSAPrivKeyTemplate(RSAPrivateCrtKey secretKey, KeyType slot,
++                                                  RSAKeyFormat format) throws IOException {
+         ByteArrayOutputStream stream = new ByteArrayOutputStream(),
+                 template = new ByteArrayOutputStream(),
+                 data = new ByteArrayOutputStream(),
+@@ -86,6 +128,51 @@ public class SecurityTokenUtils {
+         stream.write(encodeLength(data.size()));
+         stream.write(data.toByteArray());
+ 
++        // Result tlv
++        res.write(Hex.decode("4D"));
++        res.write(encodeLength(stream.size()));
++        res.write(stream.toByteArray());
++
++        return res.toByteArray();
++    }
++
++    public static byte[] createECPrivKeyTemplate(ECPrivateKey secretKey, ECPublicKey publicKey, KeyType slot,
++                                                 ECKeyFormat format) throws IOException {
++        ByteArrayOutputStream stream = new ByteArrayOutputStream(),
++                template = new ByteArrayOutputStream(),
++                data = new ByteArrayOutputStream(),
++                res = new ByteArrayOutputStream();
++
++        final int csize = (int)Math.ceil(publicKey.getParams().getCurve().getField().getFieldSize() / 8.0);
++
++        writeBits(data, secretKey.getS(), csize);
++        template.write(Hex.decode("92"));
++        template.write(encodeLength(data.size()));
++
++        if (format.getAlgorithmFormat().isWithPubkey()) {
++            data.write(Hex.decode("04"));
++            writeBits(data, publicKey.getW().getAffineX(), csize);
++            writeBits(data, publicKey.getW().getAffineY(), csize);
++            template.write(Hex.decode("99"));
++            template.write(encodeLength(1 + 2 * csize));
++        }
++
++        // Bundle up
++
++        // Ext header list data
++        // Control Reference Template to indicate the private key
++        stream.write(slot.getSlot());
++        stream.write(0);
++
++        // Cardholder private key template
++        stream.write(Hex.decode("7F48"));
++        stream.write(encodeLength(template.size()));
++        stream.write(template.toByteArray());
++
++        // Concatenation of key data as defined in DO 7F48
++        stream.write(Hex.decode("5F48"));
++        stream.write(encodeLength(data.size()));
++        stream.write(data.toByteArray());
+ 
+         // Result tlv
+         res.write(Hex.decode("4D"));
+@@ -132,20 +219,21 @@ public class SecurityTokenUtils {
+             throw new IllegalArgumentException("width <= 0");
+         }
+ 
+-        byte[] prime = value.toByteArray();
+-        int stripIdx = 0;
+-        while (prime[stripIdx] == 0 && stripIdx + 1 < prime.length) {
+-            stripIdx++;
+-        }
++        final byte[] prime = value.toByteArray();
++        int skip = 0;
+ 
+-        if (prime.length - stripIdx > width) {
++        while((skip < prime.length) && (prime[skip] == 0)) ++skip;
++
++        if ((prime.length - skip) > width) {
+             throw new IllegalArgumentException("not enough width to fit value: "
+-                    + prime.length + "/" + width);
++                    + (prime.length - skip) + "/" + width);
+         }
++
+         byte[] res = new byte[width];
+-        int empty = width - (prime.length - stripIdx);
+ 
+-        System.arraycopy(prime, stripIdx, res, Math.max(0, empty), Math.min(prime.length, width));
++        System.arraycopy(prime, skip,
++                         res, width - (prime.length - skip),
++                         prime.length - skip);
+ 
+         stream.write(res, 0, width);
+         Arrays.fill(res, (byte) 0);
+diff --git a/OpenKeychain/src/main/res/layout/add_smartpgp_authority_dialog.xml b/OpenKeychain/src/main/res/layout/add_smartpgp_authority_dialog.xml
+new file mode 100644
+index 0000000..ce5e472
+--- /dev/null
++++ b/OpenKeychain/src/main/res/layout/add_smartpgp_authority_dialog.xml
+@@ -0,0 +1,45 @@
++<?xml version="1.0" encoding="utf-8"?>
++<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
++    xmlns:custom="http://schemas.android.com/apk/res-auto"
++    android:layout_width="match_parent"
++    android:layout_height="wrap_content"
++    android:orientation="vertical"
++    android:paddingBottom="16dp"
++    android:paddingLeft="24dp"
++    android:paddingRight="24dp"
++    android:paddingTop="16dp">
++
++    <android.support.design.widget.TextInputLayout
++        android:id="@+id/smartpgp_authority_alias_edit_text_layout"
++        android:layout_width="match_parent"
++        android:layout_height="wrap_content"
++        android:layout_marginBottom="8dp">
++
++        <EditText
++            android:id="@+id/smartpgp_authority_alias_edit_text"
++            android:layout_width="match_parent"
++            android:layout_height="wrap_content"
++            android:layout_gravity="center_horizontal"
++            android:ems="10"
++            android:hint="@string/label_enter_smartpgp_authority_name"
++            android:imeOptions="actionDone"
++            android:inputType="textUri" />
++
++    </android.support.design.widget.TextInputLayout>
++
++    <Button
++        android:id="@+id/smartpgp_authority_filename"
++        android:paddingLeft="8dp"
++        android:paddingRight="8dp"
++        android:textAppearance="?android:attr/textAppearanceMedium"
++        android:layout_width="match_parent"
++        android:layout_height="wrap_content"
++        android:minHeight="?android:attr/listPreferredItemHeight"
++        android:layout_gravity="center"
++        android:text="@string/btn_add_files"
++        style="?android:attr/borderlessButtonStyle"
++        android:drawableLeft="@drawable/ic_folder_grey_24dp"
++        android:drawablePadding="16dp"
++        android:gravity="left|center_vertical" />
++
++</LinearLayout>
+\ No newline at end of file
+diff --git a/OpenKeychain/src/main/res/layout/create_yubi_key_algorithm_fragment.xml b/OpenKeychain/src/main/res/layout/create_yubi_key_algorithm_fragment.xml
+new file mode 100644
+index 0000000..c61f4d7
+--- /dev/null
++++ b/OpenKeychain/src/main/res/layout/create_yubi_key_algorithm_fragment.xml
+@@ -0,0 +1,121 @@
++<?xml version="1.0" encoding="UTF-8"?>
++<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
++    xmlns:tools="http://schemas.android.com/tools"
++    android:layout_width="match_parent"
++    android:layout_height="match_parent">
++
++    <ScrollView
++        android:layout_width="match_parent"
++        android:layout_height="match_parent"
++        android:layout_above="@+id/create_key_buttons"
++        android:fillViewport="true">
++
++        <LinearLayout
++            android:layout_width="match_parent"
++            android:layout_height="wrap_content"
++            android:orientation="vertical"
++            android:paddingLeft="16dp"
++            android:paddingRight="16dp">
++
++            <TextView
++                android:layout_width="wrap_content"
++                android:layout_height="wrap_content"
++                android:layout_marginLeft="8dp"
++                android:layout_marginTop="16dp"
++                android:text="@string/create_key_yubi_key_algorithm_text"
++                android:textAppearance="?android:attr/textAppearanceMedium"
++                android:layout_marginBottom="16dp" />
++
++            <TextView
++                android:layout_width="wrap_content"
++                android:layout_height="wrap_content"
++                android:layout_marginLeft="8dp"
++                android:layout_marginTop="16dp"
++                android:text="@string/create_key_yubi_key_algorithm_sign_text"
++                android:textAppearance="?android:attr/textAppearanceMedium" />
++
++            <org.sufficientlysecure.keychain.ui.util.spinner.FocusFirstItemSpinner
++                android:id="@+id/create_key_yubi_key_algorithm_sign"
++                android:layout_width="match_parent"
++                android:layout_height="wrap_content"
++                android:dropDownWidth="wrap_content"
++                android:layout_marginBottom="16dp"/>
++
++            <TextView
++                android:layout_width="wrap_content"
++                android:layout_height="wrap_content"
++                android:layout_marginLeft="8dp"
++                android:layout_marginTop="16dp"
++                android:text="@string/create_key_yubi_key_algorithm_dec_text"
++                android:textAppearance="?android:attr/textAppearanceMedium" />
++
++            <org.sufficientlysecure.keychain.ui.util.spinner.FocusFirstItemSpinner
++                android:id="@+id/create_key_yubi_key_algorithm_dec"
++                android:layout_width="match_parent"
++                android:layout_height="wrap_content"
++                android:dropDownWidth="wrap_content"
++                android:layout_marginBottom="16dp"/>
++
++            <TextView
++                android:layout_width="wrap_content"
++                android:layout_height="wrap_content"
++                android:layout_marginLeft="8dp"
++                android:layout_marginTop="16dp"
++                android:text="@string/create_key_yubi_key_algorithm_auth_text"
++                android:textAppearance="?android:attr/textAppearanceMedium" />
++
++            <org.sufficientlysecure.keychain.ui.util.spinner.FocusFirstItemSpinner
++                android:id="@+id/create_key_yubi_key_algorithm_auth"
++                android:layout_width="match_parent"
++                android:layout_height="wrap_content"
++                android:dropDownWidth="wrap_content"/>
++        </LinearLayout>
++    </ScrollView>
++
++    <LinearLayout
++        android:id="@+id/create_key_buttons"
++        android:layout_width="match_parent"
++        android:layout_height="wrap_content"
++        android:layout_alignParentBottom="true"
++        android:layout_alignParentLeft="true"
++        android:layout_alignParentStart="true"
++        android:background="?attr/colorButtonRow"
++        android:orientation="horizontal">
++
++        <TextView
++            android:id="@+id/create_key_back_button"
++            style="?android:attr/borderlessButtonStyle"
++            android:layout_width="match_parent"
++            android:layout_height="wrap_content"
++            android:layout_gravity="center_vertical"
++            android:layout_weight="1"
++            android:clickable="true"
++            android:drawableLeft="@drawable/ic_chevron_left_grey_24dp"
++            android:drawablePadding="8dp"
++            android:gravity="left|center_vertical"
++            android:minHeight="?android:attr/listPreferredItemHeight"
++            android:paddingLeft="16dp"
++            android:paddingRight="16dp"
++            android:text="@string/btn_back"
++            android:textAllCaps="true"
++            android:textAppearance="?android:attr/textAppearanceMedium" />
++
++        <TextView
++            android:id="@+id/create_key_next_button"
++            style="?android:attr/borderlessButtonStyle"
++            android:layout_width="match_parent"
++            android:layout_height="wrap_content"
++            android:layout_gravity="center_vertical"
++            android:layout_weight="1"
++            android:clickable="true"
++            android:drawablePadding="8dp"
++            android:drawableRight="@drawable/ic_chevron_right_grey_24dp"
++            android:gravity="right|center_vertical"
++            android:minHeight="?android:attr/listPreferredItemHeight"
++            android:paddingLeft="16dp"
++            android:paddingRight="16dp"
++            android:text="@string/btn_next"
++            android:textAllCaps="true"
++            android:textAppearance="?android:attr/textAppearanceMedium" />
++    </LinearLayout>
++</RelativeLayout>
+diff --git a/OpenKeychain/src/main/res/layout/settings_smartpgp_authority_fragment.xml b/OpenKeychain/src/main/res/layout/settings_smartpgp_authority_fragment.xml
+new file mode 100644
+index 0000000..1451384
+--- /dev/null
++++ b/OpenKeychain/src/main/res/layout/settings_smartpgp_authority_fragment.xml
+@@ -0,0 +1,7 @@
++<?xml version="1.0" encoding="utf-8"?>
++
++<android.support.v7.widget.RecyclerView
++    xmlns:android="http://schemas.android.com/apk/res/android"
++    android:id="@+id/smartpgp_authority_recycler_view"
++    android:layout_width="match_parent"
++    android:layout_height="match_parent" />
+\ No newline at end of file
+diff --git a/OpenKeychain/src/main/res/layout/settings_smartpgp_authority_item.xml b/OpenKeychain/src/main/res/layout/settings_smartpgp_authority_item.xml
+new file mode 100644
+index 0000000..9debd0a
+--- /dev/null
++++ b/OpenKeychain/src/main/res/layout/settings_smartpgp_authority_item.xml
+@@ -0,0 +1,27 @@
++<?xml version="1.0" encoding="utf-8"?>
++<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
++    android:id="@+id/outer_layout"
++    android:layout_width="match_parent"
++    android:layout_height="wrap_content"
++    android:minHeight="?listPreferredItemHeight">
++
++    <LinearLayout
++        android:id="@+id/smartpgp_authority_layout"
++        android:padding="6sp"
++        android:layout_width="match_parent"
++        android:layout_height="wrap_content"
++        android:layout_centerVertical="true"
++        android:orientation="vertical">
++
++        <TextView
++            android:id="@+id/smartpgp_authority_tv"
++            android:layout_width="match_parent"
++            android:layout_height="wrap_content"
++            android:textAppearance="?android:attr/textAppearanceMedium" />
++    </LinearLayout>
++
++    <View
++        android:layout_alignParentBottom="true"
++        style="@style/Divider"/>
++
++</RelativeLayout>
+\ No newline at end of file
+diff --git a/OpenKeychain/src/main/res/layout/smartpgp_authorities_preference.xml b/OpenKeychain/src/main/res/layout/smartpgp_authorities_preference.xml
+new file mode 100644
+index 0000000..5eb8bab
+--- /dev/null
++++ b/OpenKeychain/src/main/res/layout/smartpgp_authorities_preference.xml
+@@ -0,0 +1,17 @@
++<?xml version="1.0" encoding="utf-8"?>
++<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
++    android:layout_width="match_parent"
++    android:layout_height="match_parent"
++    android:orientation="vertical">
++
++    <include
++        android:id="@+id/toolbar_include"
++        layout="@layout/toolbar_standalone" />
++
++    <FrameLayout
++        android:id="@+id/smartpgp_authorities_settings_fragment_container"
++        android:layout_width="match_parent"
++        android:layout_height="match_parent"
++        android:orientation="vertical" />
++
++</LinearLayout>
+\ No newline at end of file
+diff --git a/OpenKeychain/src/main/res/menu/smartpgp_authority_pref_menu.xml b/OpenKeychain/src/main/res/menu/smartpgp_authority_pref_menu.xml
+new file mode 100644
+index 0000000..6c2e4c7
+--- /dev/null
++++ b/OpenKeychain/src/main/res/menu/smartpgp_authority_pref_menu.xml
+@@ -0,0 +1,10 @@
++<?xml version="1.0" encoding="utf-8"?>
++<menu xmlns:android="http://schemas.android.com/apk/res/android"
++    xmlns:app="http://schemas.android.com/apk/res-auto">
++
++    <item
++        android:id="@+id/menu_add_smartpgp_authority"
++        android:title="@string/menu_search"
++        android:icon="@drawable/ic_add_white_24dp"
++        app:showAsAction="always" />
++</menu>
+\ No newline at end of file
+diff --git a/OpenKeychain/src/main/res/values/strings.xml b/OpenKeychain/src/main/res/values/strings.xml
+index 21b6c09..1d2ced5 100644
+--- a/OpenKeychain/src/main/res/values/strings.xml
++++ b/OpenKeychain/src/main/res/values/strings.xml
+@@ -19,6 +19,7 @@
+     <string name="title_preferences">"Settings"</string>
+     <string name="title_api_registered_apps">"Apps"</string>
+     <string name="title_key_server_preference">"OpenPGP keyservers"</string>
++    <string name="title_smartpgp_authorities_preference">"SmartPGP authorities"</string>
+     <string name="title_cache_ttl_preference">"Customize 'Remember' choices"</string>
+     <string name="title_change_passphrase">"Change Password"</string>
+     <string name="title_share_fingerprint_with">"Share fingerprint with…"</string>
+@@ -182,16 +183,22 @@
+     <string name="label_keyservers_title">"Keyservers"</string>
+     <string name="label_keyserver_settings_hint">"Drag to change order, tap to edit/delete"</string>
+     <string name="label_selected_keyserver_title">"Selected keyserver"</string>
++    <string name="label_selected_smartpgp_authority_title">"Selected authority"</string>
+     <string name="label_preferred">"preferred"</string>
+     <string name="label_enable_compression">"Enable compression"</string>
+     <string name="label_encrypt_filenames">"Encrypt filenames"</string>
+     <string name="label_hidden_recipients">"Hide recipients"</string>
++    <string name="label_smartpgp_verify">SmartPGP verify certificate</string>
++    <string name="label_smartpgp_verify_summary">"Validate tokens certificates against a set of trusted certification authorities"</string>
++    <string name="label_smartpgp_roots">SmartPGP trusted authorities</string>
+ 
+     <string name="label_verify_keyserver_connection">"Test connection"</string>
+     <string name="label_only_trusted_keyserver">"Only trusted keyserver"</string>
+     <string name="label_enter_keyserver_url">"URL"</string>
+     <string name="label_keyserver_dialog_delete">"Delete keyserver"</string>
+     <string name="label_theme">"Theme"</string>
++    <string name="label_enter_smartpgp_authority_name">Name</string>
++    <string name="label_smartpgp_authority_dialog_delete">"Delete authority"</string>
+ 
+     <string name="pref_keyserver">"OpenPGP keyservers"</string>
+     <string name="pref_keyserver_summary">"Search keys on selected OpenPGP keyservers (HKP protocol)"</string>
+@@ -267,6 +274,11 @@
+         <item quantity="other">"%d keyservers"</item>
+     </plurals>
+ 
++    <plurals name="n_authorities">
++        <item quantity="one">"%d authority"</item>
++        <item quantity="other">"%d authorities"</item>
++    </plurals>
++
+     <string name="secret_key">"Secret Key:"</string>
+ 
+     <!-- choice -->
+@@ -293,6 +305,8 @@
+     <string name="rsa_4096_description_html">"larger file size, considered secure until 2040+"</string>
+     <string name="ecc_p256">"ECC P-256"</string>
+     <string name="ecc_p256_description_html">"very tiny file size, considered secure until 2040 &lt;br/> &lt;u>experimental and not supported by all implementations&lt;/u>"</string>
++    <string name="ecc_p384">"ECC P-384"</string>
++    <string name="ecc_p384_description_html">"very tiny file size, considered secure until 2040 &lt;br/> &lt;u>experimental and not supported by all implementations&lt;/u>"</string>
+     <string name="ecc_p521">"ECC P-521"</string>
+     <string name="ecc_p521_description_html">"tiny file size, considered secure until 2040+ &lt;br/> &lt;u>experimental and not supported by all implementations&lt;/u>"</string>
+     <string name="usage_none">"None (subkey binding only)"</string>
+@@ -764,6 +778,7 @@
+     <string name="edit_key_error_add_subkey">"Add at least one subkey!"</string>
+     <string name="edit_key_error_bad_security_token_algo">"Algorithm not supported by Security Token!"</string>
+     <string name="edit_key_error_bad_security_token_size">"Key size not supported by Security Token!"</string>
++    <string name="edit_key_error_bad_security_token_curve">"Curve not supported by Security Token!"</string>
+     <string name="edit_key_error_bad_security_token_stripped">"Cannot move key to Security Token (either stripped or already on Security Token)!"</string>
+ 
+     <!-- Create key -->
+@@ -792,6 +807,10 @@
+     <string name="create_key_yubi_key_pin_not_correct">"PIN is not correct!"</string>
+     <string name="create_key_yubi_key_pin_too_short">"PIN must be at least 6 numbers long!"</string>
+     <string name="create_key_yubi_key_pin_insecure">"Please choose a secure PIN, not 000000, 123456 or similar combinations (the top 20 most chosen PINs are not allowed)"</string>
++    <string name="create_key_yubi_key_algorithm_text">"Please choose an algorithm for each key."</string>
++    <string name="create_key_yubi_key_algorithm_sign_text">Signature key</string>
++    <string name="create_key_yubi_key_algorithm_dec_text">Decryption key</string>
++    <string name="create_key_yubi_key_algorithm_auth_text">Authentication key</string>
+ 
+     <!-- View key -->
+     <string name="view_key_revoked">"Revoked: Key must not be used anymore!"</string>
+@@ -814,6 +833,11 @@
+     <string name="keyserver_preference_deleted">"%s deleted"</string>
+     <string name="keyserver_preference_cannot_delete_last">"Cannot delete last keyserver. At least one is required!"</string>
+ 
++    <!-- Add/Edit SmartPGP authority -->
++    <string name="add_smartpgp_authority_dialog_title">"Add authority"</string>
++    <string name="show_smartpgp_authority_dialog_title">"Edit authority"</string>
++    <string name="smartpgp_authority_preference_deleted">"%s deleted"</string>
++
+     <!-- Navigation Drawer -->
+     <string name="nav_keys">"Keys"</string>
+     <string name="nav_encrypt_decrypt">"Encrypt/Decrypt"</string>
+diff --git a/OpenKeychain/src/main/res/xml/experimental_preferences.xml b/OpenKeychain/src/main/res/xml/experimental_preferences.xml
+index 9312997..8544487 100644
+--- a/OpenKeychain/src/main/res/xml/experimental_preferences.xml
++++ b/OpenKeychain/src/main/res/xml/experimental_preferences.xml
+@@ -35,4 +35,14 @@
+         android:persistent="true"
+         android:title="@string/label_theme" />
+ 
++    <SwitchPreference
++        android:defaultValue="false"
++        android:key="smartpgp_authorities_pref"
++        android:summary="@string/label_smartpgp_verify_summary"
++        android:title="@string/label_smartpgp_verify" />
++    <PreferenceScreen
++        android:dependency="smartpgp_authorities_pref"
++        android:key="smartpgp_authorities"
++        android:title="@string/label_smartpgp_roots" />
++
+ </PreferenceScreen>
+diff --git a/OpenKeychain/src/test/java/org/sufficientlysecure/keychain/pgp/PgpKeyOperationTest.java b/OpenKeychain/src/test/java/org/sufficientlysecure/keychain/pgp/PgpKeyOperationTest.java
+index 403b6c6..87e7803 100644
+--- a/OpenKeychain/src/test/java/org/sufficientlysecure/keychain/pgp/PgpKeyOperationTest.java
++++ b/OpenKeychain/src/test/java/org/sufficientlysecure/keychain/pgp/PgpKeyOperationTest.java
+@@ -856,6 +856,7 @@ public class PgpKeyOperationTest {
+ 
+         UncachedKeyRing modified;
+ 
++        /*
+         { // moveKeyToSecurityToken should fail with BAD_NFC_SIZE when presented with the RSA-3072 key
+             long keyId = KeyringTestingHelper.getSubkeyId(ringSecurityToken, 2);
+             parcelSecurityToken.reset();
+@@ -864,6 +865,7 @@ public class PgpKeyOperationTest {
+             assertModifyFailure("moveKeyToSecurityToken operation should fail on invalid key size", ringSecurityToken,
+                     parcelSecurityToken, cryptoInput, LogType.MSG_MF_ERROR_BAD_SECURITY_TOKEN_SIZE);
+         }
++        */
+ 
+         { // moveKeyToSecurityToken should fail with BAD_NFC_ALGO when presented with the DSA-1024 key
+             long keyId = KeyringTestingHelper.getSubkeyId(ringSecurityToken, 0);
+diff --git a/OpenKeychain/src/test/java/org/sufficientlysecure/keychain/securitytoken/SecurityTokenUtilsTest.java b/OpenKeychain/src/test/java/org/sufficientlysecure/keychain/securitytoken/SecurityTokenUtilsTest.java
+index 0f0bf7a..241a21a 100644
+--- a/OpenKeychain/src/test/java/org/sufficientlysecure/keychain/securitytoken/SecurityTokenUtilsTest.java
++++ b/OpenKeychain/src/test/java/org/sufficientlysecure/keychain/securitytoken/SecurityTokenUtilsTest.java
+@@ -128,7 +128,6 @@ public class SecurityTokenUtilsTest extends Mockito {
+ 
+     @Test
+     public void testPrivateKeyTemplateSimple2048() throws Exception {
+-        KeyFormat format = new KeyFormat(Hex.decode("010000001800"));
+         RSAPrivateCrtKey key2048 = mock(RSAPrivateCrtKey.class);
+         byte[] tmp = new byte[128];
+         Arrays.fill(tmp, (byte) 0x11);
+@@ -137,7 +136,8 @@ public class SecurityTokenUtilsTest extends Mockito {
+         Arrays.fill(tmp, (byte) 0x12);
+         when(key2048.getPrimeQ()).thenReturn(new BigInteger(tmp));
+ 
+-        when(key2048.getPublicExponent()).thenReturn(new BigInteger("65537"));
++        BigInteger exp = new BigInteger("65537");
++        when(key2048.getPublicExponent()).thenReturn(exp);
+ 
+         Assert.assertArrayEquals(
+                 Hex.decode("4d820115" + // Header TL
+@@ -160,7 +160,7 @@ public class SecurityTokenUtilsTest extends Mockito {
+                         "1212121212121212121212121212121212121212121212121212121212121212" +
+                         "1212121212121212121212121212121212121212121212121212121212121212"
+                 ),
+-                SecurityTokenUtils.createPrivKeyTemplate(key2048, KeyType.AUTH, format));
++                SecurityTokenUtils.createRSAPrivKeyTemplate(key2048, KeyType.AUTH, new RSAKeyFormat(exp.bitCount(), 2048, RSAKeyFormat.RSAAlgorithmFormat.STANDARD)));
+     }
+ 
+     @Test

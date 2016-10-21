@@ -1,0 +1,100 @@
+#!/usr/bin/env python
+
+# SmartPGP : JavaCard implementation of OpenPGP card v3 specification
+# https://github.com/ANSSI-FR/smartpgp
+# Copyright (C) 2016 ANSSI
+
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation; either version 2
+# of the License, or (at your option) any later version.
+
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+
+import argparse
+import os
+import sys
+
+from getpass import getpass
+
+from smartpgp.highlevel import *
+
+VALID_COMMANDS={
+        'list-readers':CardConnectionContext.cmd_list_readers,
+        'full-reset':  CardConnectionContext.cmd_full_reset,
+        'reset':       CardConnectionContext.cmd_reset,
+        'switch-rsa':  CardConnectionContext.cmd_switch_rsa2048,
+        'switch-bp256':CardConnectionContext.cmd_switch_bp256,
+        'switch-bp384':CardConnectionContext.cmd_switch_bp384,
+        'switch-bp512':CardConnectionContext.cmd_switch_bp512,
+        'switch-p256': CardConnectionContext.cmd_switch_p256,
+        'switch-p384': CardConnectionContext.cmd_switch_p384,
+        'switch-p521': CardConnectionContext.cmd_switch_p521,
+        'generate-sm-key': CardConnectionContext.cmd_generate_sm_key,
+        'set-resetting-code': CardConnectionContext.cmd_set_resetting_code,
+        'unblock-pin': CardConnectionContext.cmd_unblock_pin,
+        'put-sm-key': CardConnectionContext.cmd_put_sm_key,
+        'put-sm-certificate': CardConnectionContext.cmd_put_sm_certificate,
+        'get-sm-certificate': CardConnectionContext.cmd_get_sm_certificate,
+        }
+
+def read_pin_interactive(name):
+    pw = getpass("Enter %s PIN: " % name)
+    return pw
+
+def parse_args(ctx):
+    parser = argparse.ArgumentParser()
+    parser.add_argument("command", help="The command. Valid commands are: %s" % ', '.join([c for c in VALID_COMMANDS.keys()]))
+    parser.add_argument("-r", "--reader", type=int,
+            help="Select reader index (default: 0)")
+    parser.add_argument("-i", "--input", type=str,
+            help="Input file for commands requiring input data (other than PIN codes)")
+    parser.add_argument("-o", "--output", type=str,
+            help="Output file for commands emitting output data")
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument("-p", "--pin", type=str,
+            help="Admin PIN (default: 12345678). Use ENV:VARNAME to read from an environment variable")
+    group.add_argument("-I", "--interactive", action='store_true',
+            help="Ask Admin PIN interactively")
+    args = parser.parse_args()
+    # option -r
+    ctx.reader_index = args.reader or 0
+    # option -p
+    if args.pin is not None:
+        if args.pin.startswith('ENV:'):
+            varname = args.pin[4:]
+            try:
+                ctx.admin_pin=os.environ[varname]
+            except KeyError,e:
+                print "Environment variable %s not found" % varname
+                sys.exit(1)
+        else:
+            ctx.admin_pin = args.pin
+    # option -I
+    if args.interactive:
+        ctx.set_pin_read_function(read_pin_interactive)
+    # option -i
+    ctx.input = args.input
+    # option -O
+    ctx.output = args.output
+    return ctx,args
+
+def main():
+    ctx = CardConnectionContext()
+    ctx,args = parse_args(ctx)
+    if args.command in VALID_COMMANDS:
+        VALID_COMMANDS[args.command](ctx)
+    else:
+        print "Unknown command '%s'" % args.command
+        print "Run '%s -h' for help" % sys.argv[0]
+        sys.exit(1)
+
+if __name__=='__main__':
+    main()
