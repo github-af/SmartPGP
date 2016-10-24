@@ -208,7 +208,7 @@ class CardConnectionContext:
         self.connect()
         resetting_code = self.read_pin("PUK")
         new_user_pin = self.read_pin("new user")
-        unlock_pin(self.connection, resetting_code, new_user_pin)
+        unblock_pin(self.connection, resetting_code, new_user_pin)
 
     def cmd_put_sm_certificate(self):
         if self.input is None:
