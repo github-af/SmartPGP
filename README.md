@@ -204,7 +204,7 @@ messaging feature with or without token authentication.
 
 Without token authentication, you are not protected against man-in-the
 middle attack as your device cannot ensure it is communicating
-directly with a trusted token. Nevertheles, the communications with
+directly with a trusted token. Nevertheless, the communications with
 the token are still protected in confidentiality against passive
 attacks (i.e. traffic capture).
 
@@ -279,7 +279,7 @@ token.
 
 ### Install the CA in OpenKeychain
 
-- Upload the CA certificate `PKI/certs/ca.cert.pem` on your phone;
+- Upload the CA certificate `PKI/certs/ca.cert.pem` to your phone;
 
 - Go to "Parameters" > "Experimental features" and activate the option called "SmartPGP verify certificate`;
 
