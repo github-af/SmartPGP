@@ -1,7 +1,7 @@
-From 220fc35de449e03a11d5d836af0de0909d691e16 Mon Sep 17 00:00:00 2001
+From 48f470b2c5bd58b6727031db8cbadf1ad8cd0650 Mon Sep 17 00:00:00 2001
 From: Arnaud Fontaine <arnaud.fontaine@ssi.gouv.fr>
-Date: Sat, 22 Oct 2016 22:42:22 +0200
-Subject: [PATCH 2/2] Support of SmartPGP secure messaging feature
+Date: Tue, 25 Oct 2016 15:24:31 +0200
+Subject: [PATCH 2/3] Support of SmartPGP secure messaging
 
 ---
  OpenKeychain/src/main/AndroidManifest.xml          |   5 +
@@ -2128,6 +2128,5 @@ index 9312997..8544487 100644
 +
  </PreferenceScreen>
 -- 
-2.1.4
-
+2.9.3
 
