@@ -257,7 +257,6 @@ corresponding certificate in `PKI/certs/mycard1.cert.pem`.
 ### Provision the token with its sample key and certificate
 
 Change your current directory to the `bin` directory and execute the
-
 following commands after replacing the reader number `X` by the number
 of the reader that contains your token, and the path to the `pki`
 directory used in previous sections.
