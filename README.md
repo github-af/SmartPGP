@@ -189,9 +189,8 @@ resource consumption by tweaking the following variables:
 The CAP file installation depends on your device, so you have to refer
 to the instructions given by your device manufacturer.
 
-At installation, the applet expects to receive four bytes
-corresponding to the unique serial number of this OpenPGP card
-instance (see section 4.2.1 of OpenPGP card specification).
+Be careful to use a valid AID according to the OpenPGP card
+specification (see section 4.2.1) for each card.
 
 
 
