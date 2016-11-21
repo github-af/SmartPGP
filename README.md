@@ -94,8 +94,8 @@ supported by most PGP applications.
 
 ## GnuPG
 
-The support in [GnuPG](https://www.gnupg.org/) is ongoing work in the
-[master branch of 2.1 version](https://git.gnupg.org/cgi-bin/gitweb.cgi?p=gnupg.git;a=shortlog;h=refs/heads/master).
+OpenPGP card 3.x is supported by [GnuPG](https://www.gnupg.org/)
+starting from version 2.1.16.
 
 The specific secure messaging of the SmartPGP applet is
 **not** supported at all at is not part of the OpenPGP card 3.x
