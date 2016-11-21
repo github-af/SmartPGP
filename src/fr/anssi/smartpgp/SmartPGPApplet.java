@@ -33,45 +33,16 @@ public final class SmartPGPApplet extends Applet {
 
     private final Transients transients;
 
-    private final byte aid_length;
 
-
-    public SmartPGPApplet(final byte aid_len) {
+    public SmartPGPApplet() {
         ec = new ECCurves();
         data = new Persistent();
         transients = new Transients();
         sm = new SecureMessaging(transients);
-        aid_length = aid_len;
     }
 
     public static final void install(byte[] buf, short off, byte len) {
-        final short boff = off;
-
-        off += (short)(buf[boff] + 1);
-        off += (short)(buf[off] + 1);
-
-        final short data_len_off = off;
-
-        if(buf[data_len_off] != 4) {
-            ISOException.throwIt(ISO7816.SW_FUNC_NOT_SUPPORTED);
-            return;
-        }
-
-        final byte[] aid = new byte[(short)(buf[boff] + buf[data_len_off] + 2)];
-
-        off = 0;
-
-        off = Util.arrayCopyNonAtomic(buf, (short)(boff + 1),
-                                      aid, off,
-                                      buf[boff]);
-
-        off = Util.arrayCopyNonAtomic(buf, (short)(data_len_off + 1),
-                                      aid, off,
-                                      buf[data_len_off]);
-
-        off = Util.arrayFillNonAtomic(buf, off, (byte)2, (byte)0);
-
-        new SmartPGPApplet((byte)off).register(aid, (short)0, (byte)off);
+        new SmartPGPApplet().register();
     }
 
     private final PGPKey currentTagOccurenceToKey() {
@@ -395,13 +366,14 @@ public final class SmartPGPApplet extends Applet {
                            1 + 1 + (3 * Constants.FINGERPRINT_SIZE) +
                            1 + 1 + (3 * Constants.GENERATION_DATE_SIZE));
 
+            final byte aid_length = JCSystem.getAID().getBytes(buf, off);
+
             buf[off++] = (byte)Constants.TAG_APPLICATION_RELATED_DATA;
             off = Common.writeLength(buf, off, (short)(tlen + 1 + aid_length + 2 + 1 + Constants.HISTORICAL_BYTES.length));
 
             buf[off++] = (byte)Constants.TAG_AID;
             off = Common.writeLength(buf, off, aid_length);
-            JCSystem.getAID().getBytes(buf, off);
-            off += aid_length;
+            off += JCSystem.getAID().getBytes(buf, off);
             off = Util.setShort(buf, off, Constants.TAG_HISTORICAL_BYTES_CARD_SERVICE_CARD_CAPABILITIES);
             off = Common.writeLength(buf, off, (short)Constants.HISTORICAL_BYTES.length);
             off = Util.arrayCopyNonAtomic(Constants.HISTORICAL_BYTES, (short)0,
