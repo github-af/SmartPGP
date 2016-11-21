@@ -810,7 +810,7 @@ public final class PGPKey {
             }
             ++off;
 
-            final KeyAgreement ka = KeyAgreement.getInstance(KeyAgreement.ALG_EC_SVDP_DHC_PLAIN, false);
+            final KeyAgreement ka = KeyAgreement.getInstance(KeyAgreement.ALG_EC_SVDP_DH_PLAIN, false);
             ka.init(priv);
 
             final short len  = ka.generateSecret(buf, off, (short)(lc - off),

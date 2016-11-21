@@ -169,7 +169,7 @@ public final class SecureMessaging {
             return 0;
         }
 
-        final KeyAgreement ka = KeyAgreement.getInstance(KeyAgreement.ALG_EC_SVDP_DHC_PLAIN, false);
+        final KeyAgreement ka = KeyAgreement.getInstance(KeyAgreement.ALG_EC_SVDP_DH_PLAIN, false);
 
         ka.init(eskcard);
 
