@@ -115,9 +115,6 @@ OpenKeychain. See the section below for more information on the setup process.
 
 The repository contains several directories:
 
-- `patches` contains patch files applicable to existing applications
-  to support OpenPGP card 3.x and/or SmartPGP secure messaging features;
-
 - `bin` contains a Python library and command line tool called
   `smartpgp-cli` to interact with an OpenPGP card 3.x but also to deal
   with the specific secure messaging feature of the SmartPGP applet;
