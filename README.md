@@ -103,15 +103,12 @@ specification.
 
 ## OpenKeychain
 
-The [patch](patches/open-keychain.patch) proposed for
-[OpenKeychain](https://www.openkeychain.org/) introduces the partial
-support (only NIST curves are supported in the original application)
-of elliptic curve cryptography with an OpenPGP card.
+OpenPGP card 3.x is supported by [OpenKeychain](https://www.openkeychain.org/)
+starting from version 4.2 (not yet released, see [git master branch](https://github.com/open-keychain/open-keychain)
+project). Only NIST curves are supported.
 
-The specific secure messaging of the SmartPGP applet is fully
-implemented in this patch, but it requires to be setup correctly. See
-the section below for more information on the setup process.
-
+The secure messaging of the SmartPGP applet is fully supported in
+OpenKeychain. See the section below for more information on the setup process.
 
 
 # Content of the repository
@@ -211,7 +208,7 @@ If you want to test secure messaging without token authentication, you
 can use the following command to order the token to generate its
 secure messaging key on-board.
 
-`./smartpgp-cli -r X -I generate-sm-key`
+`./smartpgp-cli -r X -I generate-sm-key -o pubkey.raw`
 
 In this case, you have to deactivate the certificate verification in
 OpenKeychain: go to "Parameters" > "Experimental features" and
