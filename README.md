@@ -122,8 +122,10 @@ The repository contains several directories:
 - `secure_messaging` contains documentation and example scripts to
   play with the secure messaging feature of SmartPGP;
   
-- `src` contains the JavaCard source code of the SmartPGP applet.
+- `src` contains the JavaCard source code of the SmartPGP applet;
 
+- `videos` contains sample videos demonstrating smartcard interactions
+  with OpenKeychain and K9 mail on Android Nexus 5.
 
 
 
