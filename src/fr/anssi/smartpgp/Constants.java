@@ -32,6 +32,11 @@ public final class Constants {
 
     protected static final short APDU_MAX_LENGTH = (short)256;
 
+    protected static final short KEY_DERIVATION_FUNCTION_MIN_LENGTH = 2;
+    protected static final short KEY_DERIVATION_FUNCTION_MAX_LENGTH = 160;
+    protected static final byte[] KEY_DERIVATION_FUNCTION_DEFAULT = {
+        (byte)0xF9, (byte)0x00
+    };
 
     protected static final byte USER_PIN_RETRY_COUNT = 3;
     protected static final byte USER_PIN_MIN_SIZE = 0x06;
@@ -100,6 +105,7 @@ public final class Constants {
     protected static final short TAG_PRIVATE_DO_0103 = (short)0x0103;
     protected static final short TAG_PRIVATE_DO_0104 = (short)0x0104;
     protected static final short TAG_AES_KEY = (short)0x00d5;
+    protected static final short TAG_KEY_DERIVATION_FUNCTION = (short)0x00f9;
 
     protected static final short CRT_AUTHENTICATION_KEY = (short)0xa400;
     protected static final short CRT_SECURE_MESSAGING_KEY = (short)0xa600;
@@ -157,7 +163,8 @@ public final class Constants {
                0x10 | /* support pw status changes */
                0x08 | /* support private DOs (0101-0104) */
                0x04 | /* support algorithm attributes changes */
-               0x02), /* support PSO:DEC AES */
+               0x02 | /* support PSO:DEC AES */
+               0x01), /* support KDF-DO */
         (byte)0x01, /* SM 0x01 = 128 bits, 0x02 = 256 bits */
         (byte)0x00, (byte)0x20, /* max length get challenge */
         (byte)0x04, (byte)0x80, /* max length of carholder certificate */

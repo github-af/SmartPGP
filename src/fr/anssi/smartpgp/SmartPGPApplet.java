@@ -447,6 +447,12 @@ public final class SmartPGPApplet extends Applet {
                                           k.certificate_length);
             break;
 
+        case Constants.TAG_KEY_DERIVATION_FUNCTION:
+            off = Util.arrayCopyNonAtomic(data.key_derivation_function, (short)0,
+                                          buf, off,
+                                          data.key_derivation_function_length);
+            break;
+
         default:
             ISOException.throwIt(Constants.SW_REFERENCE_DATA_NOT_FOUND);
             return 0;
@@ -1028,6 +1034,22 @@ public final class SmartPGPApplet extends Applet {
                 data.user_puk_length = (byte)lc;
                 data.user_puk.update(buf, (short)0, data.user_puk_length);
                 data.user_puk.resetAndUnblock();
+                JCSystem.commitTransaction();
+                break;
+
+            case Constants.TAG_KEY_DERIVATION_FUNCTION:
+                assertAdmin();
+                if((lc < Constants.KEY_DERIVATION_FUNCTION_MIN_LENGTH) ||
+                   (lc > Constants.KEY_DERIVATION_FUNCTION_MAX_LENGTH)) {
+                    ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
+                    return;
+                }
+                JCSystem.beginTransaction();
+                if(data.key_derivation_function_length > 0) {
+                    Util.arrayFillNonAtomic(data.key_derivation_function, (short)0, data.key_derivation_function_length, (byte)0);
+                }
+                Util.arrayCopyNonAtomic(buf, (short)0, data.key_derivation_function, (short)0, lc);
+                data.key_derivation_function_length = (byte)lc;
                 JCSystem.commitTransaction();
                 break;
 

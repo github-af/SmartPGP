@@ -71,9 +71,12 @@ public final class Persistent {
     protected byte[] do_0104;
     protected short do_0104_length;
 
+
     protected AESKey aes_key;
 
 
+    protected byte[] key_derivation_function;
+    protected short key_derivation_function_length;
 
     protected final OwnerPIN user_pin; /* PW1 */
     protected byte user_pin_length;
@@ -128,6 +131,9 @@ public final class Persistent {
             pgp_keys[i] = new PGPKey(false);
         }
 
+        key_derivation_function = new byte[Constants.KEY_DERIVATION_FUNCTION_MAX_LENGTH];
+        key_derivation_function_length = 0;
+
         user_pin = new OwnerPIN(Constants.USER_PIN_RETRY_COUNT, Constants.USER_PIN_MAX_SIZE);
         user_puk = new OwnerPIN(Constants.USER_PUK_RETRY_COUNT, Constants.USER_PUK_MAX_SIZE);
         admin_pin = new OwnerPIN(Constants.ADMIN_PIN_RETRY_COUNT, Constants.ADMIN_PIN_MAX_SIZE);
@@ -169,7 +175,9 @@ public final class Persistent {
         if(lang_length > 0) {
             Util.arrayFillNonAtomic(lang, (short)0, lang_length, (byte)0);
         }
-        Util.arrayCopyNonAtomic(Constants.LANG_DEFAULT, (short)0, lang, (short)0, (short)Constants.LANG_DEFAULT.length);
+        Util.arrayCopyNonAtomic(Constants.LANG_DEFAULT, (short)0,
+                                lang, (short)0,
+                                (short)Constants.LANG_DEFAULT.length);
         lang_length = (byte)Constants.LANG_DEFAULT.length;
         JCSystem.commitTransaction();
 
@@ -213,6 +221,16 @@ public final class Persistent {
         aes_key.clearKey();
 
         user_pin_force_verify_signature = Constants.USER_PIN_DEFAULT_FORCE_VERIFY_SIGNATURE;
+
+        JCSystem.beginTransaction();
+        if(key_derivation_function_length > 0) {
+            Util.arrayFillNonAtomic(key_derivation_function, (short)0, key_derivation_function_length, (byte)0);
+        }
+        Util.arrayCopyNonAtomic(Constants.KEY_DERIVATION_FUNCTION_DEFAULT, (short)0,
+                                key_derivation_function, (short)0,
+                                (short)Constants.KEY_DERIVATION_FUNCTION_DEFAULT.length);
+        key_derivation_function_length = (short)Constants.KEY_DERIVATION_FUNCTION_DEFAULT.length;
+        JCSystem.commitTransaction();
 
         JCSystem.beginTransaction();
         user_pin_length = (byte)Constants.USER_PIN_DEFAULT.length;
