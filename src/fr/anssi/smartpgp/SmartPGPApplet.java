@@ -1124,6 +1124,7 @@ public final class SmartPGPApplet extends Applet {
 
         sensitiveData();
 
+        /* PSO : COMPUTE DIGITAL SIGNATURE */
         if((p1 == (byte)0x9e) && (p2 == (byte)0x9a)) {
 
             assertUserMode81();
@@ -1151,12 +1152,22 @@ public final class SmartPGPApplet extends Applet {
             return data.pgp_keys[Persistent.PGP_KEYS_OFFSET_SIG].sign(transients.buffer, lc, false);
         }
 
+        /* PSO : DECIPHER */
         if((p1 == (byte)0x80) && (p2 == (byte)0x86)) {
 
             assertUserMode82();
 
-            if((lc == (short)(1 + Constants.aesKeyLength())) &&
-               (transients.buffer[0] == (byte)2)) {
+            if(lc <= 0) {
+                ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
+                return 0;
+            }
+
+            if(transients.buffer[0] == (byte)0x02) {
+
+                if(((short)(lc - 1) % Constants.aesKeyLength()) != 0) {
+                    ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
+                    return 0;
+                }
 
                 if(!data.aes_key.isInitialized()) {
                     ISOException.throwIt(ISO7816.SW_CONDITIONS_NOT_SATISFIED);
@@ -1178,6 +1189,36 @@ public final class SmartPGPApplet extends Applet {
             }
 
             return data.pgp_keys[Persistent.PGP_KEYS_OFFSET_DEC].decipher(ec, transients.buffer, lc);
+        }
+
+        /* PSO : ENCIPHER */
+        if((p1 == (byte)0x86) && (p2 == (byte)0x80)) {
+
+            assertUserMode82();
+
+            if((lc <= 0) || ((lc % Constants.aesKeyLength()) != 0)) {
+                ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
+                return 0;
+            }
+
+            if(!data.aes_key.isInitialized()) {
+                ISOException.throwIt(ISO7816.SW_CONDITIONS_NOT_SATISFIED);
+                return 0;
+            }
+
+            final Cipher cipher = Cipher.getInstance(Cipher.ALG_AES_BLOCK_128_CBC_NOPAD, false);
+            cipher.init(data.aes_key, Cipher.MODE_ENCRYPT);
+
+            final short res = cipher.doFinal(transients.buffer, (short)0, lc,
+                                             transients.buffer, (short)(lc + 1));
+
+            transients.buffer[lc] = (byte)0x02;
+            Util.arrayCopyNonAtomic(transients.buffer, lc,
+                                    transients.buffer, (short)0, (short)(res + 1));
+
+            Util.arrayFillNonAtomic(transients.buffer, (short)(lc + 1), res, (byte)0);
+
+            return res;
         }
 
         ISOException.throwIt(ISO7816.SW_WRONG_P1P2);

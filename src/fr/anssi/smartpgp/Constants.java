@@ -163,7 +163,7 @@ public final class Constants {
                0x10 | /* support pw status changes */
                0x08 | /* support private DOs (0101-0104) */
                0x04 | /* support algorithm attributes changes */
-               0x02 | /* support PSO:DEC AES */
+               0x02 | /* support PSO:DEC/ENC AES */
                0x01), /* support KDF-DO */
         (byte)0x01, /* SM 0x01 = 128 bits, 0x02 = 256 bits */
         (byte)0x00, (byte)0x20, /* max length get challenge */
