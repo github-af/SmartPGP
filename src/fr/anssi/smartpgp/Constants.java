@@ -137,7 +137,7 @@ public final class Constants {
     protected static final byte[] HISTORICAL_BYTES = {
         (byte)0x00, /* category indicator byte */
 
-        (byte)0x31, /* card service data */
+        (byte)0xC1, /* card service data */
         (byte)0xC5, /* ... */
 
         (byte)0x73, /* card capabilities */
