@@ -32,8 +32,6 @@ public final class Constants {
 
     protected static final short APDU_MAX_LENGTH = (short)256;
 
-    protected static final short KEY_DERIVATION_FUNCTION_MIN_LENGTH = 2;
-    protected static final short KEY_DERIVATION_FUNCTION_MAX_LENGTH = 160;
     protected static final byte[] KEY_DERIVATION_FUNCTION_DEFAULT = {
         (byte)0xF9, (byte)0x03, (byte)0x81, (byte)0x01, (byte)0x00
     };
@@ -168,7 +166,7 @@ public final class Constants {
         (byte)0x01, /* SM 0x01 = 128 bits, 0x02 = 256 bits */
         (byte)0x00, (byte)0x20, /* max length get challenge */
         (byte)0x04, (byte)0x80, /* max length of carholder certificate */
-        (byte)0x00, (byte)0xff, /* max length of special DOs (private, login, url) */
+        (byte)0x00, (byte)0xff, /* max length of special DOs (private, login, url, KDF-DO) */
         (byte)0x00, /* PIN format 2 not supported */
         (byte)0x00  /* RFU */
     };

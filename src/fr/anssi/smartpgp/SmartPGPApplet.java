@@ -1039,8 +1039,8 @@ public final class SmartPGPApplet extends Applet {
 
             case Constants.TAG_KEY_DERIVATION_FUNCTION:
                 assertAdmin();
-                if((lc < Constants.KEY_DERIVATION_FUNCTION_MIN_LENGTH) ||
-                   (lc > Constants.KEY_DERIVATION_FUNCTION_MAX_LENGTH)) {
+                if((lc < 0) ||
+                   (lc > Constants.specialDoMaxLength())) {
                     ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
                     return;
                 }

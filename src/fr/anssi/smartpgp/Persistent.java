@@ -131,7 +131,7 @@ public final class Persistent {
             pgp_keys[i] = new PGPKey(false);
         }
 
-        key_derivation_function = new byte[Constants.KEY_DERIVATION_FUNCTION_MAX_LENGTH];
+        key_derivation_function = new byte[Constants.specialDoMaxLength()];
         key_derivation_function_length = 0;
 
         user_pin = new OwnerPIN(Constants.USER_PIN_RETRY_COUNT, Constants.USER_PIN_MAX_SIZE);
