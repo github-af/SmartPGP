@@ -168,7 +168,7 @@ public final class Constants {
         (byte)0x04, (byte)0x80, /* max length of carholder certificate */
         (byte)0x00, (byte)0xff, /* max length of special DOs (private, login, url, KDF-DO) */
         (byte)0x00, /* PIN format 2 not supported */
-        (byte)0x00  /* RFU */
+        (byte)0x00  /* MSE not supported */
     };
 
     protected static final short aesKeyLength() {
