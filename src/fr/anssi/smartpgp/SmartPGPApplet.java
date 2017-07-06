@@ -926,11 +926,19 @@ public final class SmartPGPApplet extends Applet {
 
             case Constants.TAG_AES_KEY:
                 assertAdmin();
-                if(lc != Constants.aesKeyLength()) {
+                if((lc != (short)16) && (lc != (short)32)) {
                     ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
                     return;
                 }
+                JCSystem.beginTransaction();
+                if(data.aes_key != null) {
+                    data.aes_key.clearKey();
+                }
+                data.aes_key = (AESKey)KeyBuilder.buildKey(KeyBuilder.TYPE_AES,
+                                                           (short)(lc * 8),
+                                                           false);
                 data.aes_key.setKey(buf, (short)0);
+                JCSystem.commitTransaction();
                 break;
 
             case Constants.TAG_CARDHOLDER_CERTIFICATE:
@@ -1164,12 +1172,12 @@ public final class SmartPGPApplet extends Applet {
 
             if(transients.buffer[0] == (byte)0x02) {
 
-                if(((short)(lc - 1) % Constants.aesKeyLength()) != 0) {
+                if(((short)(lc - 1) % Constants.AES_BLOCK_SIZE) != 0) {
                     ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
                     return 0;
                 }
 
-                if(!data.aes_key.isInitialized()) {
+                if((data.aes_key == null) || !data.aes_key.isInitialized()) {
                     ISOException.throwIt(ISO7816.SW_CONDITIONS_NOT_SATISFIED);
                     return 0;
                 }
@@ -1196,12 +1204,12 @@ public final class SmartPGPApplet extends Applet {
 
             assertUserMode82();
 
-            if((lc <= 0) || ((lc % Constants.aesKeyLength()) != 0)) {
+            if((lc <= 0) || ((lc % Constants.AES_BLOCK_SIZE) != 0)) {
                 ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
                 return 0;
             }
 
-            if(!data.aes_key.isInitialized()) {
+            if((data.aes_key == null) || !data.aes_key.isInitialized()) {
                 ISOException.throwIt(ISO7816.SW_CONDITIONS_NOT_SATISFIED);
                 return 0;
             }

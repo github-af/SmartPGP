@@ -41,12 +41,11 @@ public final class SecureMessaging {
     private final byte[] mac_chaining;
 
     private final Cipher cipher;
-    private final AESKey senc;
 
     private final CmacSignature macer;
-    private final CmacKey smac;
-    private final CmacKey srmac;
-    private final CmacKey sreceiptmac;
+    private AESKey senc;
+    private CmacKey smac;
+    private CmacKey srmac;
 
     protected final PGPKey static_key;
 
@@ -61,12 +60,9 @@ public final class SecureMessaging {
         mac_chaining = JCSystem.makeTransientByteArray(Constants.AES_BLOCK_SIZE,
                                                        JCSystem.CLEAR_ON_DESELECT);
 
-        senc = (AESKey)KeyBuilder.buildKey(KeyBuilder.TYPE_AES_TRANSIENT_DESELECT,
-                                           (short)(Constants.aesKeyLength() * 8),
-                                           false);
-        smac = new CmacKey();
-        srmac = new CmacKey();
-        sreceiptmac = new CmacKey();
+        senc = null;
+        smac = null;
+        srmac = null;
 
         static_key = new PGPKey(true);
 
@@ -74,10 +70,18 @@ public final class SecureMessaging {
     }
 
     protected final void clearSession(final Transients transients) {
-        senc.clearKey();
-        smac.clearKey();
-        srmac.clearKey();
-        sreceiptmac.clearKey();
+        if(senc != null) {
+            senc.clearKey();
+            senc = null;
+        }
+        if(smac != null) {
+            smac.clearKey();
+            smac = null;
+        }
+        if(srmac != null) {
+            srmac.clearKey();
+            srmac = null;
+        }
         macer.clear();
         transients.setSecureMessagingEncryptionCounter((short)0);
         Util.arrayFillNonAtomic(iv, (short)0, (short)iv.length, (byte)0);
@@ -95,9 +99,17 @@ public final class SecureMessaging {
 
     protected final boolean isSessionAvailable() {
         return isInitialized()
-            && senc.isInitialized()
-            && smac.isInitialized()
-            && srmac.isInitialized();
+            && (senc != null) && senc.isInitialized()
+            && (smac != null) && smac.isInitialized()
+            && (srmac != null) && srmac.isInitialized();
+    }
+
+    private static final byte aesKeyLength(final ECParams params) {
+        if(params.nb_bits < (short)512) {
+            return (byte)16;
+        } else {
+            return (byte)32;
+        }
     }
 
     private final short scp11b(final ECParams params,
@@ -123,7 +135,7 @@ public final class SecureMessaging {
 
         short off = (short)crt.length;
 
-        if(buf[off] != Constants.aesKeyLength()) {
+        if(buf[off] != aesKeyLength(params)) {
             ISOException.throwIt(ISO7816.SW_CONDITIONS_NOT_SATISFIED);
             return 0;
         }
@@ -207,10 +219,31 @@ public final class SecureMessaging {
                                           buf, (short)(len + msglen + keydata_len));
         }
 
+        final CmacKey sreceiptmac = new CmacKey(aesKeyLength(params));
         sreceiptmac.setKey(buf, (short)(len + msglen));
-        senc.setKey(buf, (short)(len + msglen + Constants.aesKeyLength()));
-        smac.setKey(buf, (short)(len + msglen + 2 * Constants.aesKeyLength()));
-        srmac.setKey(buf, (short)(len + msglen + 3 * Constants.aesKeyLength()));
+
+        if(senc != null) {
+            senc.clearKey();
+            senc = null;
+        }
+        senc = (AESKey)KeyBuilder.buildKey(KeyBuilder.TYPE_AES_TRANSIENT_DESELECT,
+                                           (short)(aesKeyLength(params) * 8),
+                                           false);
+        senc.setKey(buf, (short)(len + msglen + aesKeyLength(params)));
+
+        if(smac != null) {
+            smac.clearKey();
+            smac = null;
+        }
+        smac = new CmacKey(aesKeyLength(params));
+        smac.setKey(buf, (short)(len + msglen + 2 * aesKeyLength(params)));
+
+        if(srmac != null) {
+            srmac.clearKey();
+            srmac = null;
+        }
+        srmac = new CmacKey(aesKeyLength(params));
+        srmac.setKey(buf, (short)(len + msglen + 3 * aesKeyLength(params)));
 
         Util.arrayFillNonAtomic(buf, len, (short)(msglen + keydata_len), (byte)0);
 
@@ -254,10 +287,7 @@ public final class SecureMessaging {
             final ECParams params = static_key.ecParams(ec);
 
             if(params != null) {
-                if(((short)(Constants.aesKeyLength() * 8) == (short)128) ||
-                   (params.nb_bits >= 512)) {
-                    return scp11b(params, buf, len);
-                }
+                return scp11b(params, buf, len);
             }
         }
 

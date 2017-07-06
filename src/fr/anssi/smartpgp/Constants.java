@@ -171,10 +171,6 @@ public final class Constants {
         (byte)0x00  /* MSE not supported */
     };
 
-    protected static final short aesKeyLength() {
-        return (short)(16 * EXTENDED_CAPABILITIES[1]);
-    }
-
     protected static final short challengeMaxLength() {
         return Util.getShort(EXTENDED_CAPABILITIES, (short)2);
     }
@@ -238,7 +234,6 @@ public final class Constants {
     };
 
     protected static final byte[] RSA_EXPONENT = { (byte)0x01, (byte)0x00, (byte)0x01 };
-
 
     protected static final short AES_BLOCK_SIZE = (short)16;
 

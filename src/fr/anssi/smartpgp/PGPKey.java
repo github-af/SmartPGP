@@ -167,13 +167,9 @@ public final class PGPKey {
                 ISOException.throwIt(ISO7816.SW_WRONG_DATA);
                 return;
             }
-            if(is_secure_messaging_key) {
-                if((buf[0] != 0x12) ||
-                   (((short)(Constants.aesKeyLength()* 8) > (short)128) &&
-                    (params.nb_bits < 512))) {
-                    ISOException.throwIt(ISO7816.SW_CONDITIONS_NOT_SATISFIED);
-                    return;
-                }
+            if((buf[0] != 0x12) && is_secure_messaging_key) {
+                ISOException.throwIt(ISO7816.SW_CONDITIONS_NOT_SATISFIED);
+                return;
             }
             break;
 

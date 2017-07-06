@@ -31,9 +31,9 @@ public final class CmacKey {
     protected final byte[] k1;
     protected final byte[] k2;
 
-    protected CmacKey() {
+    protected CmacKey(final byte aesKeyLength) {
         key = (AESKey)KeyBuilder.buildKey(KeyBuilder.TYPE_AES_TRANSIENT_DESELECT,
-                                          (short)(Constants.aesKeyLength() * 8),
+                                          (short)(aesKeyLength * 8),
                                           false);
 
         k1 = JCSystem.makeTransientByteArray(Constants.AES_BLOCK_SIZE, JCSystem.CLEAR_ON_DESELECT);

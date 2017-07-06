@@ -56,26 +56,26 @@ public final class Persistent {
     protected byte sex;
 
 
-    protected byte[] digital_signature_counter;
+    protected final byte[] digital_signature_counter;
 
 
-    protected byte[] do_0101;
+    protected final byte[] do_0101;
     protected short do_0101_length;
 
-    protected byte[] do_0102;
+    protected final byte[] do_0102;
     protected short do_0102_length;
 
-    protected byte[] do_0103;
+    protected final byte[] do_0103;
     protected short do_0103_length;
 
-    protected byte[] do_0104;
+    protected final byte[] do_0104;
     protected short do_0104_length;
 
 
     protected AESKey aes_key;
 
 
-    protected byte[] key_derivation_function;
+    protected final byte[] key_derivation_function;
     protected short key_derivation_function_length;
 
     protected final OwnerPIN user_pin; /* PW1 */
@@ -122,9 +122,7 @@ public final class Persistent {
         do_0104 = new byte[Constants.specialDoMaxLength()];
         do_0104_length = 0;
 
-        aes_key = (AESKey)KeyBuilder.buildKey(KeyBuilder.TYPE_AES,
-                                              (short)(Constants.aesKeyLength() * 8),
-                                              false);
+        aes_key = null;
 
         pgp_keys = new PGPKey[PGP_KEYS_LENGTH];
         for(byte i = 0; i < pgp_keys.length; ++i) {
@@ -218,7 +216,12 @@ public final class Persistent {
         }
         JCSystem.commitTransaction();
 
-        aes_key.clearKey();
+        JCSystem.beginTransaction();
+        if(aes_key != null) {
+            aes_key.clearKey();
+            aes_key = null;
+        }
+        JCSystem.commitTransaction();
 
         user_pin_force_verify_signature = Constants.USER_PIN_DEFAULT_FORCE_VERIFY_SIGNATURE;
 
