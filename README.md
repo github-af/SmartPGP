@@ -234,7 +234,7 @@ rely on the system keystore.
 ### Generate a sample CA key and certificate
 
 Change your current directory to the `pki` directory and execute the
-script `./generate_token.sh`. It will produce a sample CA key in
+script `./generate_ca.sh`. It will produce a sample CA key in
 `PKI/private/ca.key.pem` and the corresponding certificate in
 `PKI/certs/ca.cert.pem`.
 
