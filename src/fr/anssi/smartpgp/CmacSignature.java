@@ -51,7 +51,12 @@ public final class CmacSignature {
     }
 
     protected final void clear() {
-        key = null;
+        if(key != null) {
+            if(key.isInitialized()) {
+                key.clearKey();
+            }
+            key = null;
+        }
     }
 
     private final byte blockLen() {

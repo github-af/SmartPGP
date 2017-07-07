@@ -31,7 +31,7 @@ public final class CmacKey {
     protected final byte[] k1;
     protected final byte[] k2;
 
-    protected CmacKey(final byte aesKeyLength) {
+    protected CmacKey(final short aesKeyLength) {
         key = (AESKey)KeyBuilder.buildKey(KeyBuilder.TYPE_AES_TRANSIENT_DESELECT,
                                           (short)(aesKeyLength * 8),
                                           false);
@@ -49,6 +49,10 @@ public final class CmacKey {
         key.clearKey();
         Util.arrayFillNonAtomic(k1, (short)0, (short)k1.length, (byte)0);
         Util.arrayFillNonAtomic(k2, (short)0, (short)k2.length, (byte)0);
+    }
+
+    protected final short getSize() {
+        return key.getSize();
     }
 
     protected final void setKey(final byte[] buf, final short bufOff) {
