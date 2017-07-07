@@ -616,13 +616,13 @@ public final class SmartPGPApplet extends Applet {
                 ISOException.throwIt(ISO7816.SW_SECURITY_STATUS_NOT_SATISFIED);
                 return;
             }
+            transients.setUserPinMode81(false);
+            transients.setUserPinMode82(false);
             JCSystem.beginTransaction();
             data.user_pin.update(transients.buffer, off, (byte)(lc - off));
             data.user_pin_length = off;
-            data.user_pin.resetAndUnblock();
-            transients.setUserPinMode81(false);
-            transients.setUserPinMode82(false);
             JCSystem.commitTransaction();
+            data.user_pin.resetAndUnblock();
             break;
 
         case (byte)0x83:
@@ -639,8 +639,8 @@ public final class SmartPGPApplet extends Applet {
             JCSystem.beginTransaction();
             data.admin_pin.update(transients.buffer, off, (byte)(lc - off));
             data.admin_pin_length = off;
-            data.admin_pin.resetAndUnblock();;
             JCSystem.commitTransaction();
+            data.admin_pin.resetAndUnblock();;
             break;
 
         default:
@@ -673,11 +673,13 @@ public final class SmartPGPApplet extends Applet {
                 ISOException.throwIt(ISO7816.SW_SECURITY_STATUS_NOT_SATISFIED);
                 return;
             }
+            transients.setUserPinMode81(false);
+            transients.setUserPinMode82(false);
             JCSystem.beginTransaction();
             data.user_pin.update(transients.buffer, off, (byte)(lc - off));
             data.user_pin_length = off;
-            data.user_pin.resetAndUnblock();
             JCSystem.commitTransaction();
+            data.user_pin.resetAndUnblock();
             break;
 
         case (byte)0x02:
@@ -687,11 +689,13 @@ public final class SmartPGPApplet extends Applet {
                 ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
                 return;
             }
+            transients.setUserPinMode81(false);
+            transients.setUserPinMode82(false);
             JCSystem.beginTransaction();
             data.user_pin_length = (byte)lc;
             data.user_pin.update(transients.buffer, (short)0, data.user_pin_length);
-            data.user_pin.resetAndUnblock();
             JCSystem.commitTransaction();
+            data.user_pin.resetAndUnblock();
             break;
 
         default:
@@ -1029,20 +1033,17 @@ public final class SmartPGPApplet extends Applet {
                 break;
 
             case Constants.TAG_RESETTING_CODE:
-
                 assertAdmin();
-
                 if((lc < Constants.USER_PUK_MIN_SIZE) ||
                    (lc > Constants.USER_PUK_MAX_SIZE)) {
                     ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
                     return;
                 }
-
                 JCSystem.beginTransaction();
                 data.user_puk_length = (byte)lc;
                 data.user_puk.update(buf, (short)0, data.user_puk_length);
-                data.user_puk.resetAndUnblock();
                 JCSystem.commitTransaction();
+                data.user_puk.resetAndUnblock();
                 break;
 
             case Constants.TAG_KEY_DERIVATION_FUNCTION:
