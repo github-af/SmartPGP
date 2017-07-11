@@ -1166,7 +1166,7 @@ public final class SmartPGPApplet extends Applet {
 
             assertUserMode82();
 
-            if(lc <= 0) {
+            if(lc <= 1) {
                 ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
                 return 0;
             }
@@ -1227,7 +1227,7 @@ public final class SmartPGPApplet extends Applet {
 
             Util.arrayFillNonAtomic(transients.buffer, (short)(lc + 1), res, (byte)0);
 
-            return res;
+            return (short)(res + 1);
         }
 
         ISOException.throwIt(ISO7816.SW_WRONG_P1P2);
