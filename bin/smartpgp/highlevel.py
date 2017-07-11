@@ -30,10 +30,14 @@ class ConnectionFailed(Exception):
 class AdminPINFailed(Exception):
     pass
 
+class UserPINFailed(Exception):
+    pass
+
 class CardConnectionContext:
 
     def __init__(self):
         self.reader_index = 0
+        self.admin_pin = "123456"
         self.admin_pin = "12345678"
         self.connection = None
         self.read_pin = self._default_pin_read_function
@@ -57,6 +61,16 @@ class CardConnectionContext:
         else:
             raise AdminPINFailed
 
+    def verify_user_pin(self):
+        if self.verified:
+            return
+        user_pin = self.read_pin("User")
+        (_,sw1,sw2)=verif_user_pin(self.connection, user_pin)
+        if sw1==0x90 and sw2==0x00:
+            self.verified = True
+        else:
+            raise UserPINFailed
+        
     def connect(self):
         if self.connected:
             return
@@ -220,7 +234,7 @@ class CardConnectionContext:
         f.close()
         self.connect()
         self.verify_admin_pin()
-        put_sm_certificate(self.connection,cert)
+        put_sm_certificate(self.connection, cert)
 
     def cmd_get_sm_certificate(self):
         if self.output is None:
@@ -232,3 +246,54 @@ class CardConnectionContext:
         with open(self.output, 'w') as f:
             f.write(cert)
             f.close()
+
+    def cmd_put_aes_key(self):
+        if self.input is None:
+            print "No input AES key file"
+            return
+        f = open(self.input, 'r')
+        key = f.read()
+        key = [ord(c) for c in key]
+        f.close()
+        self.connect()
+        self.verify_admin_pin()
+        put_aes_key(self.connection, key)
+
+    def cmd_encrypt_aes(self):
+        if self.input is None:
+            print "No input data file"
+            return
+        if self.output is None:
+            print "No output data file"
+            return
+        f = open(self.input, 'r')
+        data = f.read()
+        data = [ord(c) for c in data]
+        f.close()
+        self.connect()
+        self.verify_user_pin()
+        (data,_,_) = encrypt_aes(self.connection, data)
+        data = "".join([chr(c) for c in data])
+        with open(self.output, 'w') as f:
+            f.write(data)
+            f.close()
+ 
+    def cmd_decrypt_aes(self):
+        if self.input is None:
+            print "No input data file"
+            return
+        if self.output is None:
+            print "No output data file"
+            return
+        f = open(self.input, 'r')
+        data = f.read()
+        data = [ord(c) for c in data]
+        f.close()
+        self.connect()
+        self.verify_user_pin()
+        (data,_,_) = decrypt_aes(self.connection, data)
+        data = "".join([chr(c) for c in data])
+        with open(self.output, 'w') as f:
+            f.write(data)
+            f.close()
+ 

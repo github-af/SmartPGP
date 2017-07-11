@@ -43,6 +43,9 @@ VALID_COMMANDS={
         'put-sm-key': CardConnectionContext.cmd_put_sm_key,
         'put-sm-certificate': CardConnectionContext.cmd_put_sm_certificate,
         'get-sm-certificate': CardConnectionContext.cmd_get_sm_certificate,
+        'put-aes-key': CardConnectionContext.cmd_put_aes_key,
+        'encrypt-aes': CardConnectionContext.cmd_encrypt_aes,
+        'decrypt-aes': CardConnectionContext.cmd_decrypt_aes,
         }
 
 def read_pin_interactive(name):

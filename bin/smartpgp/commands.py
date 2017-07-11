@@ -29,7 +29,8 @@ SELECT = [0x00, 0xA4, 0x04, 0x00,
           0xD2, 0x76, 0x00, 0x01, 0x24, 0x01,
           0x00]
 
-VERIFY = [0x00, 0x20, 0x00, 0x83]
+VERIFY_ADMIN = [0x00, 0x20, 0x00, 0x83]
+VERIFY_USER_82 = [0x00, 0x20, 0x00, 0x82]
 TERMINATE = [0x00, 0xe6, 0x00, 0x00]
 ACTIVATE = [0x00, 0x44, 0x00, 0x00]
 ACTIVATE_FULL = [0x00, 0x44, 0x00, 0x01]
@@ -111,9 +112,10 @@ def encode_len(data):
 
 def _raw_send_apdu(connection, text, apdu):
     print "%s" % text
-    data, sw1, sw2 = connection.transmit(apdu)
-    print data
-    print "%s: %02X %02X" % (text, sw1, sw2)
+    #print ' '.join('{:02X}'.format(c) for c in apdu)
+    (data, sw1, sw2) = connection.transmit(apdu)
+    #print ' '.join('{:02X}'.format(c) for c in data)
+    print "%02X %02X" % (sw1, sw2)
     return (data,sw1,sw2)
 
 def list_readers():
@@ -136,8 +138,12 @@ def select_applet(connection):
     return _raw_send_apdu(connection,"Select OpenPGP Applet",SELECT)
 
 def verif_admin_pin(connection, admin_pin):
-    verif_apdu = assemble_with_len(VERIFY,ascii_encode_pin(admin_pin))
+    verif_apdu = assemble_with_len(VERIFY_ADMIN,ascii_encode_pin(admin_pin))
     return _raw_send_apdu(connection,"Verify Admin PIN",verif_apdu)
+
+def verif_user_pin(connection, user_pin):
+    verif_apdu = assemble_with_len(VERIFY_USER_82,ascii_encode_pin(user_pin))
+    return _raw_send_apdu(connection,"Verify User PIN",verif_apdu)
 
 def full_reset_card(connection):
     _raw_send_apdu(connection,"Terminate",TERMINATE)
@@ -259,7 +265,7 @@ def get_sm_certificate(connection):
     apdu = [0x00, 0xCA, 0x7F, 0x21, 0x00]
     (data,sw1,sw2) = _raw_send_apdu(connection,"Receiving SM certificate chunk",apdu)
     while sw1 == 0x61:
-        apdu = [0x00, 0xC0, 0x00, 0x00, 0x00]
+        apdu = [0x00, 0xC0, 0x00, 0x00, sw2]
         (ndata,sw1,sw2) = _raw_send_apdu(connection,"Receiving SM certificate chunk",apdu)
         data = data + ndata
     return (data,sw1,sw2)
@@ -282,3 +288,55 @@ def get_sm_curve_oid(connection):
     #print ' '.join('{:02X}'.format(c) for c in curve)
     # Add DER OID header manually ...
     return '\x06' + struct.pack('B',len(curve)) + curve
+
+def put_aes_key(connection, key):
+    prefix = [0x00, 0xDA, 0x00, 0xD5]
+    data = key
+    apdu = assemble_with_len(prefix, data)
+    _raw_send_apdu(connection,"Put AES key",apdu)
+
+def encrypt_aes(connection, msg):
+    ins_p1_p2 = [0x2A, 0x86, 0x80]
+    i = 0
+    cl = 255
+    l = len(msg)
+    while i < l:
+        if (l - i) <= cl:
+            cla = 0x00
+            data = msg[i:]
+            i = l
+        else:
+            cla = 0x10
+            data = msg[i:i+cl]
+            i = i + cl
+        apdu = assemble_with_len([cla] + ins_p1_p2, data)
+        (res,sw1,sw2) = _raw_send_apdu(connection,"Encrypt AES chunk",apdu)
+        while sw1 == 0x61:
+            apdu = [0x00, 0xC0, 0x00, 0x00, sw2]
+            (nres,sw1,sw2) = _raw_send_apdu(connection,"Receiving encrypted chunk",apdu)
+            res = res + nres
+    return (res[1:],sw1,sw2)
+
+
+def decrypt_aes(connection, msg):
+    ins_p1_p2 = [0x2A, 0x80, 0x86]
+    i = 0
+    cl = 255
+    msg = [0x02] + msg
+    l = len(msg)
+    while i < l:
+        if (l - i) <= cl:
+            cla = 0x00
+            data = msg[i:]
+            i = l
+        else:
+            cla = 0x10
+            data = msg[i:i+cl]
+            i = i + cl
+        apdu = assemble_with_len([cla] + ins_p1_p2, data)
+        (res,sw1,sw2) = _raw_send_apdu(connection,"Decrypt AES chunk",apdu)
+        while sw1 == 0x61:
+            apdu = [0x00, 0xC0, 0x00, 0x00, sw2]
+            (nres,sw1,sw2) = _raw_send_apdu(connection,"Receiving decrypted chunk",apdu)
+            res = res + nres
+    return (res,sw1,sw2)
