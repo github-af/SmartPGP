@@ -80,13 +80,16 @@ public final class Persistent {
 
     protected final OwnerPIN user_pin; /* PW1 */
     protected byte user_pin_length;
+    protected boolean user_pin_is_format_2;
     protected boolean user_pin_force_verify_signature;
 
     protected final OwnerPIN user_puk; /* resetting code */
     protected byte user_puk_length;
+    protected boolean user_puk_is_format_2;
 
     protected final OwnerPIN admin_pin; /* PW3 */
     protected byte admin_pin_length;
+    protected boolean admin_pin_is_format_2;
 
 
 
@@ -237,14 +240,17 @@ public final class Persistent {
 
         JCSystem.beginTransaction();
         user_pin_length = (byte)Constants.USER_PIN_DEFAULT.length;
+        user_pin_is_format_2 = Constants.USER_PIN_DEFAULT_IS_FORMAT_2;
         user_pin.update(Constants.USER_PIN_DEFAULT, (short)0, user_pin_length);
         user_pin.resetAndUnblock();
         JCSystem.commitTransaction();
 
         user_puk_length = 0;
+        user_puk_is_format_2 = Constants.USER_PIN_DEFAULT_IS_FORMAT_2;
 
         JCSystem.beginTransaction();
         admin_pin_length = (byte)Constants.ADMIN_PIN_DEFAULT.length;
+        admin_pin_is_format_2 = Constants.ADMIN_PIN_DEFAULT_IS_FORMAT_2;
         admin_pin.update(Constants.ADMIN_PIN_DEFAULT, (short)0, admin_pin_length);
         admin_pin.resetAndUnblock();
         JCSystem.commitTransaction();
