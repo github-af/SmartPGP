@@ -129,7 +129,7 @@ public final class Persistent {
 
         pgp_keys = new PGPKey[PGP_KEYS_LENGTH];
         for(byte i = 0; i < pgp_keys.length; ++i) {
-            pgp_keys[i] = new PGPKey(false);
+            pgp_keys[i] = new PGPKey();
         }
 
         key_derivation_function = new byte[Constants.specialDoMaxLength()];
