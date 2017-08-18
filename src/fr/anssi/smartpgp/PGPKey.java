@@ -60,10 +60,10 @@ public final class PGPKey {
         attributes = new byte[Constants.ALGORITHM_ATTRIBUTES_MAX_LENGTH];
         attributes_length = 0;
 
-        reset();
+        reset(true);
     }
 
-    private final void resetKeys() {
+    private final void resetKeys(final boolean isRegistering) {
         if(keys != null) {
             keys.getPrivate().clearKey();
             keys.getPublic().clearKey();
@@ -76,16 +76,16 @@ public final class PGPKey {
         }
 
         if(!is_secure_messaging_key) {
-            fingerprint.reset();
+            fingerprint.reset(isRegistering);
 
             Util.arrayFillNonAtomic(generation_date, (short)0, Constants.GENERATION_DATE_SIZE, (byte)0);
         }
     }
 
-    protected final void reset() {
-        resetKeys();
+    protected final void reset(final boolean isRegistering) {
+        resetKeys(isRegistering);
 
-        JCSystem.beginTransaction();
+        Common.beginTransaction(isRegistering);
         if(attributes_length > 0) {
             Util.arrayFillNonAtomic(attributes, (short)0, attributes_length, (byte)0);
             attributes_length = (byte)0;
@@ -102,7 +102,7 @@ public final class PGPKey {
                                     (short)Constants.ALGORITHM_ATTRIBUTES_DEFAULT.length);
             attributes_length = (byte)Constants.ALGORITHM_ATTRIBUTES_DEFAULT.length;
         }
-        JCSystem.commitTransaction();
+        Common.commitTransaction(isRegistering);
     }
 
     protected final boolean isInitialized() {
@@ -178,7 +178,7 @@ public final class PGPKey {
             return;
         }
 
-        resetKeys();
+        resetKeys(false);
 
         JCSystem.beginTransaction();
         if(attributes_length > 0) {
@@ -267,7 +267,7 @@ public final class PGPKey {
             return;
         }
 
-        resetKeys();
+        resetKeys(false);
 
         keys = nkeys;
     }
@@ -512,7 +512,7 @@ public final class PGPKey {
             return;
         }
 
-        resetKeys();
+        resetKeys(false);
         keys = nkeys;
     }
 

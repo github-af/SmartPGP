@@ -1391,12 +1391,12 @@ public final class SmartPGPApplet extends Applet {
         if(data.isTerminated) {
             switch(p2) {
             case (byte)1:
-                sm.reset(transients);
+                sm.reset(false, transients);
                 //missing break is intentional
 
             case (byte)0:
                 transients.clear();
-                data.reset();
+                data.reset(false);
                 break;
 
             default:

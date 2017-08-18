@@ -139,40 +139,40 @@ public final class Persistent {
         user_puk = new OwnerPIN(Constants.USER_PUK_RETRY_COUNT, Constants.USER_PUK_MAX_SIZE);
         admin_pin = new OwnerPIN(Constants.ADMIN_PIN_RETRY_COUNT, Constants.ADMIN_PIN_MAX_SIZE);
 
-        reset();
+        reset(true);
     }
 
-    protected void reset() {
+    protected void reset(final boolean isRegistering) {
         for(byte i = 0; i < pgp_keys.length; ++i) {
-            pgp_keys[i].reset();
+            pgp_keys[i].reset(isRegistering);
         }
 
         if(login_length > 0) {
-            JCSystem.beginTransaction();
+            Common.beginTransaction(isRegistering);
             Util.arrayFillNonAtomic(login, (short)0, login_length, (byte)0);
             login_length = (short)0;
-            JCSystem.commitTransaction();
+            Common.commitTransaction(isRegistering);
         }
 
         if(url_length > 0) {
-            JCSystem.beginTransaction();
+            Common.beginTransaction(isRegistering);
             Util.arrayFillNonAtomic(url, (short)0, url_length, (byte)0);
             url_length = (short)0;
-            JCSystem.commitTransaction();
+            Common.commitTransaction(isRegistering);
         }
 
         for(byte i = 0; i < fingerprints.length; ++i) {
-            fingerprints[i].reset();
+            fingerprints[i].reset(isRegistering);
         }
 
         if(name_length > 0) {
-            JCSystem.beginTransaction();
+            Common.beginTransaction(isRegistering);
             Util.arrayFillNonAtomic(name, (short)0, name_length, (byte)0);
             name_length = (byte)0;
-            JCSystem.commitTransaction();
+            Common.commitTransaction(isRegistering);
         }
 
-        JCSystem.beginTransaction();
+        Common.beginTransaction(isRegistering);
         if(lang_length > 0) {
             Util.arrayFillNonAtomic(lang, (short)0, lang_length, (byte)0);
         }
@@ -180,55 +180,55 @@ public final class Persistent {
                                 lang, (short)0,
                                 (short)Constants.LANG_DEFAULT.length);
         lang_length = (byte)Constants.LANG_DEFAULT.length;
-        JCSystem.commitTransaction();
+        Common.commitTransaction(isRegistering);
 
         sex = Constants.SEX_NOT_ANNOUNCED;
 
         Util.arrayFillNonAtomic(digital_signature_counter, (short)0,
                                 (short)digital_signature_counter.length, (byte)0);
 
-        JCSystem.beginTransaction();
+        Common.beginTransaction(isRegistering);
         if(do_0101_length > 0) {
             Util.arrayFillNonAtomic(do_0101, (short)0,
                                     (short)do_0101.length, (byte)0);
             do_0101_length = 0;
         }
-        JCSystem.commitTransaction();
+        Common.commitTransaction(isRegistering);
 
-        JCSystem.beginTransaction();
+        Common.beginTransaction(isRegistering);
         if(do_0102_length > 0) {
             Util.arrayFillNonAtomic(do_0102, (short)0,
                                     (short)do_0102.length, (byte)0);
             do_0102_length = 0;
         }
-        JCSystem.commitTransaction();
+        Common.commitTransaction(isRegistering);
 
-        JCSystem.beginTransaction();
+        Common.beginTransaction(isRegistering);
         if(do_0103_length > 0) {
             Util.arrayFillNonAtomic(do_0103, (short)0,
                                     (short)do_0103.length, (byte)0);
             do_0103_length = 0;
         }
-        JCSystem.commitTransaction();
+        Common.commitTransaction(isRegistering);
 
-        JCSystem.beginTransaction();
+        Common.beginTransaction(isRegistering);
         if(do_0104_length > 0) {
             Util.arrayFillNonAtomic(do_0104, (short)0,
                                     (short)do_0104.length, (byte)0);
             do_0104_length = 0;
         }
-        JCSystem.commitTransaction();
+        Common.commitTransaction(isRegistering);
 
-        JCSystem.beginTransaction();
+        Common.beginTransaction(isRegistering);
         if(aes_key != null) {
             aes_key.clearKey();
             aes_key = null;
         }
-        JCSystem.commitTransaction();
+        Common.commitTransaction(isRegistering);
 
         user_pin_force_verify_signature = Constants.USER_PIN_DEFAULT_FORCE_VERIFY_SIGNATURE;
 
-        JCSystem.beginTransaction();
+        Common.beginTransaction(isRegistering);
         if(key_derivation_function_length > 0) {
             Util.arrayFillNonAtomic(key_derivation_function, (short)0, key_derivation_function_length, (byte)0);
         }
@@ -236,24 +236,24 @@ public final class Persistent {
                                 key_derivation_function, (short)0,
                                 (short)Constants.KEY_DERIVATION_FUNCTION_DEFAULT.length);
         key_derivation_function_length = (short)Constants.KEY_DERIVATION_FUNCTION_DEFAULT.length;
-        JCSystem.commitTransaction();
+        Common.commitTransaction(isRegistering);
 
-        JCSystem.beginTransaction();
+        Common.beginTransaction(isRegistering);
         user_pin_length = (byte)Constants.USER_PIN_DEFAULT.length;
         user_pin_is_format_2 = Constants.USER_PIN_DEFAULT_IS_FORMAT_2;
         user_pin.update(Constants.USER_PIN_DEFAULT, (short)0, user_pin_length);
         user_pin.resetAndUnblock();
-        JCSystem.commitTransaction();
+        Common.commitTransaction(isRegistering);
 
         user_puk_length = 0;
         user_puk_is_format_2 = Constants.USER_PIN_DEFAULT_IS_FORMAT_2;
 
-        JCSystem.beginTransaction();
+        Common.beginTransaction(isRegistering);
         admin_pin_length = (byte)Constants.ADMIN_PIN_DEFAULT.length;
         admin_pin_is_format_2 = Constants.ADMIN_PIN_DEFAULT_IS_FORMAT_2;
         admin_pin.update(Constants.ADMIN_PIN_DEFAULT, (short)0, admin_pin_length);
         admin_pin.resetAndUnblock();
-        JCSystem.commitTransaction();
+        Common.commitTransaction(isRegistering);
 
         isTerminated = false;
     }

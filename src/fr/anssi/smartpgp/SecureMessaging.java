@@ -78,7 +78,7 @@ public final class SecureMessaging {
         smac = null;
         srmac = null;
 
-        reset(transients);
+        reset(true, transients);
     }
 
 
@@ -103,13 +103,13 @@ public final class SecureMessaging {
         transients.setSecureMessagingEncryptionCounter((short)0);
     }
 
-    protected final void reset(final Transients transients) {
+    protected final void reset(final boolean isRegistering, final Transients transients) {
         clearSession(transients);
         sreceiptmac = null;
         senc = null;
         smac = null;
         srmac = null;
-        static_key.reset();
+        static_key.reset(isRegistering);
     }
 
     private final void initSession(final short keyLength,

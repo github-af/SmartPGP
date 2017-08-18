@@ -32,8 +32,10 @@ public final class Fingerprint {
         data = new byte[Constants.FINGERPRINT_SIZE];
     }
 
-    protected final void reset() {
+    protected final void reset(final boolean isRegistering) {
+        Common.beginTransaction(isRegistering);
         Util.arrayFillNonAtomic(data, (short)0, Constants.FINGERPRINT_SIZE, (byte)0);
+        Common.commitTransaction(isRegistering);
     }
 
     protected final void set(final byte[] buf, final short off, final short len) {
