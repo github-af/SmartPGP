@@ -1352,7 +1352,7 @@ public final class SmartPGPApplet extends Applet {
             switch(p2) {
             case (byte)0:
                 transients.clear();
-                data.reset();
+                data.reset(false);
                 break;
 
             default:

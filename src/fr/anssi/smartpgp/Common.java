@@ -27,6 +27,18 @@ import javacardx.crypto.*;
 
 public final class Common {
 
+    protected static final void beginTransaction(final boolean isRegistering) {
+        if(!isRegistering) {
+            JCSystem.beginTransaction();
+        }
+    }
+
+    protected static final void commitTransaction(final boolean isRegistering) {
+        if(!isRegistering) {
+            JCSystem.commitTransaction();
+        }
+    }
+
     protected static final void checkPinFormat2(final byte[] buf,
                                                 short off,
                                                 short lc,
