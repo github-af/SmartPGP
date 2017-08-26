@@ -33,9 +33,15 @@ public final class SmartPGPApplet extends Applet {
 
     private final Transients transients;
 
+    private final Cipher cipher_aes_cbc_nopad;
+    private final RandomData random_data;
 
     public SmartPGPApplet() {
+        cipher_aes_cbc_nopad = Cipher.getInstance(Cipher.ALG_AES_BLOCK_128_CBC_NOPAD, false);
+        random_data = RandomData.getInstance(RandomData.ALG_SECURE_RANDOM);
+
         ec = new ECCurves();
+
         data = new Persistent();
         transients = new Transients();
         sm = new SecureMessaging(transients);
@@ -1272,11 +1278,10 @@ public final class SmartPGPApplet extends Applet {
                     return 0;
                 }
 
-                final Cipher cipher = Cipher.getInstance(Cipher.ALG_AES_BLOCK_128_CBC_NOPAD, false);
-                cipher.init(data.aes_key, Cipher.MODE_DECRYPT);
+                cipher_aes_cbc_nopad.init(data.aes_key, Cipher.MODE_DECRYPT);
 
-                final short res = cipher.doFinal(transients.buffer, (short)1, (short)(lc - 1),
-                                                 transients.buffer, lc);
+                final short res = cipher_aes_cbc_nopad.doFinal(transients.buffer, (short)1, (short)(lc - 1),
+                                                               transients.buffer, lc);
 
                 Util.arrayCopyNonAtomic(transients.buffer, lc,
                                         transients.buffer, (short)0, res);
@@ -1304,11 +1309,10 @@ public final class SmartPGPApplet extends Applet {
                 return 0;
             }
 
-            final Cipher cipher = Cipher.getInstance(Cipher.ALG_AES_BLOCK_128_CBC_NOPAD, false);
-            cipher.init(data.aes_key, Cipher.MODE_ENCRYPT);
+            cipher_aes_cbc_nopad.init(data.aes_key, Cipher.MODE_ENCRYPT);
 
-            final short res = cipher.doFinal(transients.buffer, (short)0, lc,
-                                             transients.buffer, (short)(lc + 1));
+            final short res = cipher_aes_cbc_nopad.doFinal(transients.buffer, (short)0, lc,
+                                                           transients.buffer, (short)(lc + 1));
 
             transients.buffer[lc] = (byte)0x02;
             Util.arrayCopyNonAtomic(transients.buffer, lc,
@@ -1359,7 +1363,7 @@ public final class SmartPGPApplet extends Applet {
         }
 
         if(le != 0) {
-            RandomData.getInstance(RandomData.ALG_SECURE_RANDOM).generateData(transients.buffer, (short)0, le);
+            random_data.generateData(transients.buffer, (short)0, le);
         }
 
         return le;
