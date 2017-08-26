@@ -177,7 +177,7 @@ public final class Constants {
     };
 
     protected static final byte[] EXTENDED_CAPABILITIES = {
-        (byte)(0x80 | /* support secure messaging */
+        (byte)(0x00 | /* support secure messaging */
                0x40 | /* support get challenge */
                0x20 | /* support key import */
                0x10 | /* support pw status changes */
