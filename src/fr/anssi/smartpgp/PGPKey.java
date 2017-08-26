@@ -141,15 +141,15 @@ public final class PGPKey {
             return;
         }
 
-        switch(buf[0]) {
+        switch(buf[off]) {
         case 0x01:
             if((len != 6) || is_secure_messaging_key) {
                 ISOException.throwIt(ISO7816.SW_WRONG_DATA);
                 return;
             }
-            if((Util.getShort(buf, (short)1) < 2048) ||
-               (Util.getShort(buf, (short)3) != 0x11) ||
-               (buf[5] < 0) || (buf[5] > 3)) {
+            if((Util.getShort(buf, (short)(off + 1)) < 2048) ||
+               (Util.getShort(buf, (short)(off + 3)) != 0x11) ||
+               (buf[(short)(off + 5)] < 0) || (buf[(short)(off + 5)] > 3)) {
                 ISOException.throwIt(ISO7816.SW_WRONG_DATA);
                 return;
             }
