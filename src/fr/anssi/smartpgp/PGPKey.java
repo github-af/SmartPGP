@@ -39,8 +39,11 @@ public final class PGPKey {
 
     private KeyPair keys;
 
+    private final Cipher cipher_rsa_pkcs1;
 
     protected PGPKey() {
+
+        cipher_rsa_pkcs1 = Cipher.getInstance(Cipher.ALG_RSA_PKCS1, false);
 
         fingerprint = new Fingerprint();
         generation_date = new byte[Constants.GENERATION_DATE_SIZE];
@@ -470,11 +473,10 @@ public final class PGPKey {
                 return 0;
             }
 
-            final Cipher cipher = Cipher.getInstance(Cipher.ALG_RSA_PKCS1, false);
-            cipher.init(priv, Cipher.MODE_ENCRYPT);
+            cipher_rsa_pkcs1.init(priv, Cipher.MODE_ENCRYPT);
 
-            off = cipher.doFinal(buf, (short)0, lc,
-                                 buf, (short)lc);
+            off = cipher_rsa_pkcs1.doFinal(buf, (short)0, lc,
+                                           buf, (short)lc);
 
             return Util.arrayCopyNonAtomic(buf, (short)lc,
                                            buf, (short)0,
@@ -511,11 +513,10 @@ public final class PGPKey {
                 return 0;
             }
 
-            final Cipher cipher = Cipher.getInstance(Cipher.ALG_RSA_PKCS1, false);
-            cipher.init(priv, Cipher.MODE_DECRYPT);
+            cipher_rsa_pkcs1.init(priv, Cipher.MODE_DECRYPT);
 
-            final short len = cipher.doFinal(buf, (short)1, (short)(lc - 1),
-                                             buf, (short)lc);
+            final short len = cipher_rsa_pkcs1.doFinal(buf, (short)1, (short)(lc - 1),
+                                                       buf, (short)lc);
 
             off = Util.arrayCopyNonAtomic(buf, lc,
                                           buf, (short)0,
