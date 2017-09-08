@@ -48,7 +48,7 @@ public final class PGPKey {
         is_secure_messaging_key = for_secure_messaging;
 
         if(is_secure_messaging_key) {
-            cipher = null;
+            cipher_rsa_pkcs1 = null;
             fingerprint = null;
             generation_date = null;
         } else {
