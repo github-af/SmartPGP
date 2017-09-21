@@ -765,8 +765,13 @@ public final class PGPKey {
         } else if(isEc()) {
 
             final ECParams params = ecParams(ec);
+            short elc = 7;
 
-            if((lc <= 7) || (lc > (short)(7 + 1 + (short)(2 * Common.bitsToBytes(params.nb_bits))))) {
+            if(params.nb_bits >= (short)512) {
+                elc = 10;
+            }
+
+            if(lc != (short)(elc + 1 + (short)(2 * Common.bitsToBytes(params.nb_bits)))) {
                 ISOException.throwIt(ISO7816.SW_WRONG_DATA);
                 return 0;
             }
@@ -777,11 +782,12 @@ public final class PGPKey {
             }
             ++off;
 
-            if(buf[off] != (byte)(lc - off - 1)) {
+            elc = Common.readLength(buf, off, (short)(lc - off));
+            off = Common.skipLength(buf, off, (short)(lc - off));
+            if(elc != (short)(lc - off)) {
                 ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
                 return 0;
             }
-            ++off;
 
             if(Util.getShort(buf, off) != (short)(0x7f49)) {
                 ISOException.throwIt(ISO7816.SW_WRONG_DATA);
@@ -789,11 +795,12 @@ public final class PGPKey {
             }
             off += 2;
 
-            if(buf[off] != (byte)(lc - off - 1)) {
+            elc = Common.readLength(buf, off, (short)(lc - off));
+            off = Common.skipLength(buf, off, (short)(lc - off));
+            if(elc != (short)(lc - off)) {
                 ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
                 return 0;
             }
-            ++off;
 
             if(buf[off] != (byte)0x86) {
                 ISOException.throwIt(ISO7816.SW_WRONG_DATA);
@@ -801,11 +808,12 @@ public final class PGPKey {
             }
             ++off;
 
-            if(buf[off] != (byte)(lc - off - 1)) {
+            elc = Common.readLength(buf, off, (short)(lc - off));
+            off = Common.skipLength(buf, off, (short)(lc - off));
+            if(elc != (short)(lc - off)) {
                 ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
                 return 0;
             }
-            ++off;
 
             final KeyAgreement ka = KeyAgreement.getInstance(KeyAgreement.ALG_EC_SVDP_DH_PLAIN, false);
             ka.init(priv);
