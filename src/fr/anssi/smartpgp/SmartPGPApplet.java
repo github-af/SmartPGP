@@ -433,6 +433,12 @@ public final class SmartPGPApplet extends Applet {
 
         case Constants.TAG_CARDHOLDER_CERTIFICATE:
             k = currentTagOccurenceToKey();
+
+            if(k == null) {
+                ISOException.throwIt(Constants.SW_REFERENCE_DATA_NOT_FOUND);
+                return 0;
+            }
+
             off = Util.arrayCopyNonAtomic(k.certificate, (short)0,
                                           buf, off,
                                           k.certificate_length);
@@ -460,6 +466,11 @@ public final class SmartPGPApplet extends Applet {
         }
 
         final PGPKey k = currentTagOccurenceToKey();
+
+        if(k == null) {
+            ISOException.throwIt(Constants.SW_REFERENCE_DATA_NOT_FOUND);
+            return 0;
+        }
 
         transients.setCurrentTagOccurrence((byte)(transients.currentTagOccurrence() + 1));
 
@@ -774,6 +785,8 @@ public final class SmartPGPApplet extends Applet {
 
         final byte[] buf = transients.buffer;
 
+        PGPKey k = null;
+
         if(isOdd) {
 
             assertAdmin();
@@ -799,8 +812,6 @@ public final class SmartPGPApplet extends Applet {
                 ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
                 return;
             }
-
-            PGPKey k = null;
 
             switch(Util.getShort(buf, off)) {
             case Constants.CRT_SIGNATURE_KEY:
@@ -1005,7 +1016,12 @@ public final class SmartPGPApplet extends Applet {
 
             case Constants.TAG_CARDHOLDER_CERTIFICATE:
                 assertAdmin();
-                currentTagOccurenceToKey().setCertificate(buf, (short)0, lc);
+                k = currentTagOccurenceToKey();
+                if(k == null) {
+                    ISOException.throwIt(Constants.SW_REFERENCE_DATA_NOT_FOUND);
+                    return;
+                }
+                k.setCertificate(buf, (short)0, lc);
                 break;
 
             case Constants.TAG_ALGORITHM_ATTRIBUTES_SIG:
