@@ -42,7 +42,8 @@ public final class Constants {
     protected static final byte USER_PIN_MIN_SIZE_FORMAT_2 = 6;
     protected static final byte USER_PIN_MAX_SIZE_FORMAT_2 = 12;
     protected static final byte[] USER_PIN_DEFAULT = {
-        0x31, 0x32, 0x33,0x34, 0x35, 0x36
+	(byte)0x31, (byte)0x32, (byte)0x33, (byte)0x34,
+	(byte)0x35, (byte)0x36
     };
     protected static final boolean USER_PIN_DEFAULT_IS_FORMAT_2 = false;
     /*
@@ -68,7 +69,8 @@ public final class Constants {
     protected static final byte ADMIN_PIN_MIN_SIZE_FORMAT_2 = 8;
     protected static final byte ADMIN_PIN_MAX_SIZE_FORMAT_2 = 12;
     protected static final byte[] ADMIN_PIN_DEFAULT = {
-        0x31, 0x32, 0x33,0x34, 0x35, 0x36, 0x37, 0x38
+	(byte)0x31, (byte)0x32, (byte)0x33, (byte)0x34,
+	(byte)0x35, (byte)0x36, (byte)0x37, (byte)0x38
     };
     protected static final boolean ADMIN_PIN_DEFAULT_IS_FORMAT_2 = false;
     /*
