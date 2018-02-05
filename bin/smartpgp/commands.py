@@ -112,6 +112,7 @@ def encode_len(data):
 
 def _raw_send_apdu(connection, text, apdu):
     print "%s" % text
+    apdu = [int(c) for c in apdu]
     #print ' '.join('{:02X}'.format(c) for c in apdu)
     (data, sw1, sw2) = connection.transmit(apdu)
     #print ' '.join('{:02X}'.format(c) for c in data)
