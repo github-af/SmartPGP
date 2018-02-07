@@ -1,0 +1,17 @@
+Index: smartpgp/src/fr/anssi/smartpgp/SmartPGPApplet.java
+===================================================================
+--- smartpgp.orig/src/fr/anssi/smartpgp/SmartPGPApplet.java
++++ smartpgp/src/fr/anssi/smartpgp/SmartPGPApplet.java
+@@ -1394,10 +1394,12 @@ public final class SmartPGPApplet extend
+             return;
+         }
+ 
++/*
+         if(data.admin_pin.getTriesRemaining() <= 0) {
+             data.isTerminated = true;
+             return;
+         }
++*/
+ 
+         assertAdmin();
+ 
