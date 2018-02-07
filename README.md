@@ -1,7 +1,7 @@
 # SmartPGP applet
 
 SmartPGP is a free and open source implementation of the [OpenPGP card
-3.x specification](http://www.g10code.com/docs/openpgp-card-3.0.pdf) in JavaCard.
+3.3 specification](https://gnupg.org/ftp/specs/OpenPGP-smart-card-application-3.3.pdf) in JavaCard.
 
 The main improvement introduced in OpenPGP card 3.x specification from
 previous version is the support of elliptic curve cryptography with
@@ -60,9 +60,9 @@ erased. Also note that hard coded default values will be restored upon
 a factory reset.
 
 
-## Compliance with OpenPGP card 3.x specification 
+## Compliance with OpenPGP card 3.3 specification
 
-The SmartPGP applet implements the complete OpenPGP card 3.x
+The SmartPGP applet implements the complete OpenPGP card 3.3
 specification, except the secure messaging related features:
 
 - Commands and responses protection is not implemented as described in
@@ -89,7 +89,7 @@ specification, except the secure messaging related features:
 
 # Application support
 
-Tokens following the OpenPGP card 3.x specification are not yet fully
+Tokens following the OpenPGP card 3.3 specification are not yet fully
 supported by most PGP applications.
 
 ## GnuPG
@@ -98,14 +98,13 @@ OpenPGP card 3.x is supported by [GnuPG](https://www.gnupg.org/)
 starting from version 2.1.16.
 
 The specific secure messaging of the SmartPGP applet is
-**not** supported at all at is not part of the OpenPGP card 3.x
+**not** supported at all at is not part of the OpenPGP card
 specification.
 
 ## OpenKeychain
 
 OpenPGP card 3.x is supported by [OpenKeychain](https://www.openkeychain.org/)
-starting from version 4.2 (not yet released, see [git master branch](https://github.com/open-keychain/open-keychain)
-project). Only NIST curves are supported.
+starting from version 4.2. Only NIST curves are supported.
 
 The secure messaging of the SmartPGP applet is fully supported in
 OpenKeychain. See the section below for more information on the setup process.
@@ -183,7 +182,9 @@ resource consumption by tweaking the following variables:
 ## Installing the CAP file
 
 The CAP file installation depends on your device, so you have to refer
-to the instructions given by your device manufacturer.
+to the instructions given by your device manufacturer. Most open cards
+relying on Global Platform with default keys are supported by
+[GlobalPlatformPro](https://github.com/martinpaljak/GlobalPlatformPro).
 
 Be careful to use a valid AID according to the OpenPGP card
 specification (see section 4.2.1) for each card.
