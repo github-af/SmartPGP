@@ -624,7 +624,9 @@ public final class SmartPGPApplet extends Applet {
                 return;
 
             case (byte)0x83:
-                data.admin_pin.reset();
+                if(data.admin_pin.isValidated()) {
+                    data.admin_pin.reset();
+                }
                 return;
 
             default:
