@@ -33,7 +33,7 @@ public final class Constants {
     protected static final short APDU_MAX_LENGTH = (short)256;
 
     protected static final byte[] KEY_DERIVATION_FUNCTION_DEFAULT = {
-        (byte)0xF9, (byte)0x03, (byte)0x81, (byte)0x01, (byte)0x00
+        (byte)0x81, (byte)0x01, (byte)0x00
     };
 
     protected static final byte USER_PIN_RETRY_COUNT = 3;
