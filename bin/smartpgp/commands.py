@@ -341,3 +341,10 @@ def decrypt_aes(connection, msg):
             (nres,sw1,sw2) = _raw_send_apdu(connection,"Receiving decrypted chunk",apdu)
             res = res + nres
     return (res,sw1,sw2)
+
+
+def put_kdf_do(connection, kdf_do):
+    prefix = [0x00, 0xDA, 0x00, 0xF9]
+    data = kdf_do
+    apdu = assemble_with_len(prefix, data)
+    _raw_send_apdu(connection,"Put KDF-DO",apdu)
