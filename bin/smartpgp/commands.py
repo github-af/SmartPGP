@@ -348,3 +348,9 @@ def put_kdf_do(connection, kdf_do):
     data = kdf_do
     apdu = assemble_with_len(prefix, data)
     _raw_send_apdu(connection,"Put KDF-DO",apdu)
+
+
+def get_kdf_do(connection):
+    apdu = [0x00, 0xCA, 0x00, 0xF9, 0x00]
+    (data,sw1,sw2) = _raw_send_apdu(connection,"Get KDF-DO",apdu)
+    return (data,sw1,sw2)
