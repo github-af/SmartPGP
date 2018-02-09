@@ -296,4 +296,16 @@ class CardConnectionContext:
         with open(self.output, 'w') as f:
             f.write(data)
             f.close()
+
+    def cmd_set_kdf(self):
+        if self.input is None:
+            print "No input KDF-DO"
+            return
+        f = open(self.input, 'r')
+        kdf_do = f.read()
+        kdf_do = [ord(c) for c in kdf_do]
+        f.close()
+        self.connect()
+        self.verify_admin_pin()
+        put_kdf_do(self.connection, kdf_do)
  
