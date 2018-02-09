@@ -46,6 +46,7 @@ VALID_COMMANDS={
         'put-aes-key': CardConnectionContext.cmd_put_aes_key,
         'encrypt-aes': CardConnectionContext.cmd_encrypt_aes,
         'decrypt-aes': CardConnectionContext.cmd_decrypt_aes,
+        'get-kdf': CardConnectionContext.cmd_get_kdf,
         'set-kdf': CardConnectionContext.cmd_set_kdf,
         }
 

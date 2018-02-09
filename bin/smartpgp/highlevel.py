@@ -308,4 +308,14 @@ class CardConnectionContext:
         self.connect()
         self.verify_admin_pin()
         put_kdf_do(self.connection, kdf_do)
- 
+
+    def cmd_get_kdf(self):
+        if self.output is None:
+            print "No output file"
+            return
+        self.connect()
+        (kdf_do,_,_) = get_kdf_do(self.connection)
+        kdf_do = "".join([chr(c) for c in kdf_do])
+        with open(self.output, 'w') as f:
+            f.write(kdf_do)
+            f.close()
