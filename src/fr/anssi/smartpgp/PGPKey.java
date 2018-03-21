@@ -450,7 +450,7 @@ public final class PGPKey {
                 off = Common.skipLength(buf, off, (short)(len - (short)(off - boff)));
                 template_off = off;
 
-                if(template_len > (short)(len - ((short)off - boff))) {
+                if(template_len > (short)(len - (short)(off - boff))) {
                     ISOException.throwIt(ISO7816.SW_WRONG_DATA);
                     return;
                 }
@@ -483,7 +483,7 @@ public final class PGPKey {
                 off = Common.skipLength(buf, off, (short)(len - (short)(off - boff)));
                 data_off = off;
 
-                if(data_len > (short)(len - ((short)off - boff))) {
+                if(data_len > (short)(len - (short)(off - boff))) {
                     ISOException.throwIt(ISO7816.SW_WRONG_DATA);
                     return;
                 }
@@ -630,9 +630,9 @@ public final class PGPKey {
             cipher_rsa_pkcs1.init(priv, Cipher.MODE_ENCRYPT);
 
             off = cipher_rsa_pkcs1.doFinal(buf, (short)0, lc,
-                                           buf, (short)lc);
+                                           buf, lc);
 
-            return Util.arrayCopyNonAtomic(buf, (short)lc,
+            return Util.arrayCopyNonAtomic(buf, lc,
                                            buf, (short)0,
                                            off);
 
@@ -752,7 +752,7 @@ public final class PGPKey {
             cipher_rsa_pkcs1.init(priv, Cipher.MODE_DECRYPT);
 
             final short len = cipher_rsa_pkcs1.doFinal(buf, (short)1, (short)(lc - 1),
-                                                       buf, (short)lc);
+                                                       buf, lc);
 
             off = Util.arrayCopyNonAtomic(buf, lc,
                                           buf, (short)0,

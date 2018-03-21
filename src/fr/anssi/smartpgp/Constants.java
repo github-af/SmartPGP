@@ -28,7 +28,7 @@ import javacardx.crypto.*;
 public final class Constants {
 
     protected static final short INTERNAL_BUFFER_MAX_LENGTH =
-        (short)((short)0x500);
+        (short)0x500;
 
     protected static final short APDU_MAX_LENGTH = (short)256;
 
