@@ -1,0 +1,35 @@
+Index: smartpgp/src/fr/anssi/smartpgp/Constants.java
+===================================================================
+--- smartpgp.orig/src/fr/anssi/smartpgp/Constants.java
++++ smartpgp/src/fr/anssi/smartpgp/Constants.java
+@@ -30,7 +30,7 @@ public final class Constants {
+     protected static final short INTERNAL_BUFFER_MAX_LENGTH =
+         (short)0x500;
+ 
+-    protected static final short APDU_MAX_LENGTH = (short)256;
++    protected static final short APDU_MAX_LENGTH = (short)0x400;
+ 
+     protected static final byte[] KEY_DERIVATION_FUNCTION_DEFAULT = {
+         (byte)0x81, (byte)0x01, (byte)0x00
+@@ -174,7 +174,7 @@ public final class Constants {
+         (byte)0x73, /* card capabilities */
+         (byte)0xC0, /* 1st byte: "methods supported" see ISO 7816-4 */
+         (byte)0x01, /* 2nd byte: "data coding byte" idem */
+-        (byte)0x80, /* 3rd byte: command chaining (not extended length by default as all readers do not support them...) */
++        (byte)0xC0, /* 3rd byte: command chaining + extended length */
+ 
+         (byte)0x05, /* status indicator byte : operational state */
+         (byte)0x90, /* SW1 */
+Index: smartpgp/src/fr/anssi/smartpgp/SmartPGPApplet.java
+===================================================================
+--- smartpgp.orig/src/fr/anssi/smartpgp/SmartPGPApplet.java
++++ smartpgp/src/fr/anssi/smartpgp/SmartPGPApplet.java
+@@ -25,7 +25,7 @@ import javacard.security.*;
+ import javacardx.apdu.*;
+ import javacardx.crypto.*;
+ 
+-public final class SmartPGPApplet extends Applet {
++public final class SmartPGPApplet extends Applet implements ExtendedLength {
+ 
+     private final ECCurves ec;
+     private final Persistent data;
