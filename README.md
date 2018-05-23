@@ -179,6 +179,13 @@ resource consumption by tweaking the following variables:
 - Execute `ant` with no parameter will produce the CAP file in
   `build/fr/anssi/smartpgp/javacard/smartpgp.cap`.
 
+## Building the CAP file with Gradle
+
+- Set path to the JavaCard Development Kit:
+  `export JC_HOME="your/path/to/javacardkit"`
+
+- Execute `gradle convertJavacard`. It will produce the CAP file in
+  `build/fr/anssi/smartpgp/javacard/smartpgp.cap`.
 
 ## Installing the CAP file
 
