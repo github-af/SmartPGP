@@ -39,62 +39,6 @@ public final class Common {
         }
     }
 
-    protected static final void checkPinFormat2(final byte[] buf,
-                                                short off,
-                                                short lc,
-                                                 final short minlen,
-                                                final short maxlen) {
-        if(lc != (short)8) {
-            ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
-            return;
-        }
-
-        if((buf[off] & (byte)0xf0) != (byte)0x20) {
-            ISOException.throwIt(ISO7816.SW_WRONG_DATA);
-            return;
-        }
-
-        lc = (byte)(buf[off++] & (byte)0xf);
-        if((lc < minlen) || (lc > maxlen)) {
-            ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
-            return;
-        }
-
-        for(short i = 0; i < lc; ++i) {
-            byte value;
-
-            if((byte)(i & (byte)0x1) == (byte)0) {
-                value = (byte)(buf[off] & (byte)0xf0);
-                value >>= 4;
-            } else {
-                value = (byte)(buf[off] & (byte)0x0f);
-                ++off;
-            }
-
-            if((value < (byte)0) || (value > (byte)9)) {
-                ISOException.throwIt(ISO7816.SW_WRONG_DATA);
-                return;
-            }
-        }
-
-        for(short i = lc; i < (byte)14; ++i) {
-            byte value;
-
-            if((byte)(i & (byte)0x1) == (byte)0) {
-                value = (byte)(buf[off] & (byte)0xf0);
-                value >>= 4;
-            } else {
-                value = (byte)(buf[off] & (byte)0x0f);
-                ++off;
-            }
-
-            if(value != (byte)0x0f) {
-                ISOException.throwIt(ISO7816.SW_WRONG_DATA);
-                return;
-            }
-        }
-    }
-
     protected static final short aesKeyLength(final ECParams params) {
         if(params.nb_bits < (short)512) {
             return (short)16;
