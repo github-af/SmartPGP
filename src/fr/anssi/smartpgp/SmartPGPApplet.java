@@ -154,11 +154,7 @@ public final class SmartPGPApplet extends Applet {
         buf[off++] = Constants.ADMIN_PIN_MAX_SIZE;
 
         buf[off++] = data.user_pin.getTriesRemaining();
-        if(data.user_puk_length > 0) {
-            buf[off++] = data.user_puk.getTriesRemaining();
-        } else {
-            buf[off++] = (byte)0x00;
-        }
+        buf[off++] = data.user_puk.getTriesRemaining();
         buf[off++] = data.admin_pin.getTriesRemaining();
 
         return off;
