@@ -149,21 +149,9 @@ public final class SmartPGPApplet extends Applet {
     private final short writePwStatus(final byte[] buf, short off) {
         buf[off++] = (byte)(data.user_pin_force_verify_signature ? 0x00 : 0x01);
 
-        if(data.user_pin_is_format_2) {
-            buf[off++] = (byte)0x80 | Constants.USER_PIN_MAX_SIZE_FORMAT_2;
-        } else {
-            buf[off++] = Constants.USER_PIN_MAX_SIZE;
-        }
-        if(data.user_puk_is_format_2) {
-            buf[off++] = (byte)0x80 | Constants.USER_PUK_MAX_SIZE_FORMAT_2;
-        } else {
-            buf[off++] = Constants.USER_PUK_MAX_SIZE;
-        }
-        if(data.admin_pin_is_format_2) {
-            buf[off++] = (byte)0x80 | Constants.ADMIN_PIN_MAX_SIZE_FORMAT_2;
-        } else {
-            buf[off++] = Constants.ADMIN_PIN_MAX_SIZE;
-        }
+        buf[off++] = Constants.USER_PIN_MAX_SIZE;
+        buf[off++] = Constants.USER_PUK_MAX_SIZE;
+        buf[off++] = Constants.ADMIN_PIN_MAX_SIZE;
 
         buf[off++] = data.user_pin.getTriesRemaining();
         if(data.user_puk_length > 0) {
@@ -524,17 +512,10 @@ public final class SmartPGPApplet extends Applet {
                 switch(p2) {
                 case (byte)0x81:
                 case (byte)0x82:
-                    if(data.user_pin_is_format_2) {
-                        Common.checkPinFormat2(transients.buffer,
-                                               (short)0, lc,
-                                               Constants.USER_PIN_MIN_SIZE_FORMAT_2,
-                                               Constants.USER_PIN_MAX_SIZE_FORMAT_2);
-                    } else {
-                        if((lc < Constants.USER_PIN_MIN_SIZE) ||
-                           (lc > Constants.USER_PIN_MAX_SIZE)) {
-                            ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
-                            return;
-                        }
+                    if((lc < Constants.USER_PIN_MIN_SIZE) ||
+                       (lc > Constants.USER_PIN_MAX_SIZE)) {
+                        ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
+                        return;
                     }
 
                     if(p2 == (byte)0x81) {
@@ -556,17 +537,10 @@ public final class SmartPGPApplet extends Applet {
                     return;
 
                 case (byte)0x83:
-                    if(data.admin_pin_is_format_2) {
-                        Common.checkPinFormat2(transients.buffer,
-                                               (short)0, lc,
-                                               Constants.ADMIN_PIN_MIN_SIZE_FORMAT_2,
-                                               Constants.ADMIN_PIN_MAX_SIZE_FORMAT_2);
-                    } else {
-                        if((lc < Constants.ADMIN_PIN_MIN_SIZE) ||
-                           (lc > Constants.ADMIN_PIN_MAX_SIZE)) {
-                            ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
-                            return;
-                        }
+                    if((lc < Constants.ADMIN_PIN_MIN_SIZE) ||
+                       (lc > Constants.ADMIN_PIN_MAX_SIZE)) {
+                        ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
+                        return;
                     }
 
                     if(!data.admin_pin.check(transients.buffer, (short)0, (byte)lc)) {
@@ -627,25 +601,10 @@ public final class SmartPGPApplet extends Applet {
 
         switch(p2) {
         case (byte)0x81:
-            if(data.user_pin_is_format_2) {
-                if(lc != (short)(2 * data.user_pin_length)) {
-                    ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
-                    return;
-                }
-                Common.checkPinFormat2(transients.buffer,
-                                       (short)0, data.user_pin_length,
-                                       Constants.USER_PIN_MIN_SIZE_FORMAT_2,
-                                       Constants.USER_PIN_MAX_SIZE_FORMAT_2);
-                Common.checkPinFormat2(transients.buffer,
-                                       data.user_pin_length, data.user_pin_length,
-                                       Constants.USER_PIN_MIN_SIZE_FORMAT_2,
-                                       Constants.USER_PIN_MAX_SIZE_FORMAT_2);
-            } else {
-                if((lc < (data.user_pin_length + Constants.USER_PIN_MIN_SIZE)) ||
-                   (lc > (data.user_pin_length + Constants.USER_PIN_MAX_SIZE))) {
-                    ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
-                    return;
-                }
+            if((lc < (Constants.USER_PIN_MIN_SIZE + Constants.USER_PIN_MIN_SIZE)) ||
+               (lc > (Constants.USER_PIN_MAX_SIZE + Constants.USER_PIN_MAX_SIZE))) {
+                ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
+                return;
             }
             off = data.user_pin_length;
             if(!data.user_pin.check(transients.buffer, (short)0, off)) {
@@ -662,25 +621,10 @@ public final class SmartPGPApplet extends Applet {
             break;
 
         case (byte)0x83:
-            if(data.admin_pin_is_format_2) {
-                if(lc != (short)(2 * data.admin_pin_length)) {
-                    ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
-                    return;
-                }
-                Common.checkPinFormat2(transients.buffer,
-                                       (short)0, data.admin_pin_length,
-                                       Constants.ADMIN_PIN_MIN_SIZE_FORMAT_2,
-                                       Constants.ADMIN_PIN_MAX_SIZE_FORMAT_2);
-                Common.checkPinFormat2(transients.buffer,
-                                       data.admin_pin_length, data.admin_pin_length,
-                                       Constants.ADMIN_PIN_MIN_SIZE_FORMAT_2,
-                                       Constants.ADMIN_PIN_MAX_SIZE_FORMAT_2);
-            } else {
-                if((lc < (data.admin_pin_length + Constants.ADMIN_PIN_MIN_SIZE)) ||
-                   (lc > (data.admin_pin_length + Constants.ADMIN_PIN_MAX_SIZE))) {
-                    ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
-                    return;
-                }
+            if((lc < (Constants.ADMIN_PIN_MIN_SIZE + Constants.ADMIN_PIN_MIN_SIZE)) ||
+               (lc > (Constants.ADMIN_PIN_MAX_SIZE + Constants.ADMIN_PIN_MAX_SIZE))) {
+                ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
+                return;
             }
             off = data.admin_pin_length;
             if(!data.admin_pin.check(transients.buffer, (short)0, off)) {
@@ -714,27 +658,10 @@ public final class SmartPGPApplet extends Applet {
 
         switch(p1) {
         case (byte)0x00:
-            if(data.user_pin_is_format_2) {
-                if(lc != (short)(data.user_puk_length + data.user_pin_length)) {
-                    ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
-                    return;
-                }
-                Common.checkPinFormat2(transients.buffer,
-                                       data.user_puk_length, data.user_pin_length,
-                                       Constants.USER_PIN_MIN_SIZE_FORMAT_2,
-                                       Constants.USER_PIN_MAX_SIZE_FORMAT_2);
-            } else {
-                if((lc < (data.user_puk_length + Constants.USER_PIN_MIN_SIZE)) ||
-                   (lc > (data.user_puk_length + Constants.USER_PIN_MAX_SIZE))) {
-                    ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
-                    return;
-                }
-            }
-            if(data.user_puk_is_format_2) {
-                Common.checkPinFormat2(transients.buffer,
-                                       (short)0, data.user_puk_length,
-                                       Constants.USER_PUK_MIN_SIZE_FORMAT_2,
-                                       Constants.USER_PUK_MAX_SIZE_FORMAT_2);
+            if((lc < (Constants.USER_PUK_MIN_SIZE + Constants.USER_PIN_MIN_SIZE)) ||
+               (lc > (Constants.USER_PUK_MAX_SIZE + Constants.USER_PIN_MAX_SIZE))) {
+                ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
+                return;
             }
             off = data.user_puk_length;
             if(!data.user_puk.check(transients.buffer, (short)0, off)) {
@@ -752,17 +679,10 @@ public final class SmartPGPApplet extends Applet {
 
         case (byte)0x02:
             assertAdmin();
-            if(data.user_pin_is_format_2) {
-                Common.checkPinFormat2(transients.buffer,
-                                       (short)0, lc,
-                                       Constants.USER_PIN_MIN_SIZE_FORMAT_2,
-                                       Constants.USER_PIN_MAX_SIZE_FORMAT_2);
-            } else {
-                if((lc < Constants.USER_PIN_MIN_SIZE) ||
-                   (lc > Constants.USER_PIN_MAX_SIZE)) {
-                    ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
-                    return;
-                }
+            if((lc < Constants.USER_PIN_MIN_SIZE) ||
+               (lc > Constants.USER_PIN_MAX_SIZE)) {
+                ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
+                return;
             }
             transients.setUserPinMode81(false);
             transients.setUserPinMode82(false);
@@ -1105,17 +1025,10 @@ public final class SmartPGPApplet extends Applet {
 
             case Constants.TAG_RESETTING_CODE:
                 assertAdmin();
-                if(data.user_puk_is_format_2) {
-                    Common.checkPinFormat2(transients.buffer,
-                                           (short)0, lc,
-                                           Constants.USER_PUK_MIN_SIZE_FORMAT_2,
-                                           Constants.USER_PUK_MAX_SIZE_FORMAT_2);
-                } else {
-                    if((lc < Constants.USER_PUK_MIN_SIZE) ||
-                       (lc > Constants.USER_PUK_MAX_SIZE)) {
-                        ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
-                        return;
-                    }
+                if((lc < Constants.USER_PUK_MIN_SIZE) ||
+                   (lc > Constants.USER_PUK_MAX_SIZE)) {
+                    ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
+                    return;
                 }
                 JCSystem.beginTransaction();
                 data.user_puk_length = (byte)lc;
