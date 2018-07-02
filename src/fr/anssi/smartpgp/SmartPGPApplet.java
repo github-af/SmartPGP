@@ -1313,6 +1313,7 @@ public final class SmartPGPApplet extends Applet {
         data.isTerminated = true;
     }
 
+    @SuppressWarnings("fallthrough")
     private final void processActivateFile(final byte p1, final byte p2) {
         if(p1 != (byte)0) {
             ISOException.throwIt(ISO7816.SW_WRONG_P1P2);
