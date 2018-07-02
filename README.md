@@ -97,14 +97,13 @@ supported by most PGP applications.
 OpenPGP card 3.x is supported by [GnuPG](https://www.gnupg.org/)
 starting from version 2.1.16.
 
-The specific secure messaging of the SmartPGP applet is
-**not** supported at all at is not part of the OpenPGP card
-specification.
+The specific secure messaging of the SmartPGP applet is **not**
+supported at is not part of the OpenPGP card specification.
 
 ## OpenKeychain
 
 OpenPGP card 3.x is supported by [OpenKeychain](https://www.openkeychain.org/)
-starting from version 4.2. Only NIST curves are supported.
+starting from version 4.2.
 
 The secure messaging of the SmartPGP applet is fully supported in
 OpenKeychain. See the section below for more information on the setup process.
@@ -135,9 +134,6 @@ The repository contains several directories:
 - JavaCard Development Kit 3.0.4 (or above) from
   [Oracle website](http://www.oracle.com/technetwork/java/embedded/javacard/downloads/index.html);
 
-- The `ant` tool 1.9.4 (or above) from your Linux distribution or from
-  [Apache Ant project website](http://ant.apache.org/);
-  
 - A device compliant with JavaCard 3.0.4 (or above) with enough
   available resources to hold the code (approximately 23 kB of
   non-volatile memory), persistent data (approximately 10 kB of
@@ -200,16 +196,13 @@ specification (see section 4.2.1) for each card.
 
 # Setting up secure messaging with OpenKeychain
 
-The patch written for OpenKeychain permits to use the secure
-messaging feature with or without token authentication.
-
 ## Secure messaging without token authentication
 
-Without token authentication, you are not protected against man-in-the
-middle attack as your device cannot ensure it is communicating
-directly with a trusted token. Nevertheless, the communications with
-the token are still protected in confidentiality against passive
-attacks (i.e. traffic capture).
+Without token authentication, you are not protected against
+man-in-the-middle attack as your device cannot ensure it is
+communicating directly with a trusted token. Nevertheless, the
+communications with the token are still protected in confidentiality
+against passive attacks (i.e. trafic capture).
 
 If you want to test secure messaging without token authentication, you
 can use the following command to order the token to generate its
