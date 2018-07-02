@@ -189,7 +189,8 @@ relying on Global Platform with default keys are supported by
 [GlobalPlatformPro](https://github.com/martinpaljak/GlobalPlatformPro).
 
 Be careful to use a valid AID according to the OpenPGP card
-specification (see section 4.2.1) for each card.
+specification (see section 4.2.1) for each card (`-create <AID>` with
+GlobalPlatformPro)
 
 
 
