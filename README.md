@@ -161,18 +161,17 @@ resource consumption by tweaking the following variables:
 
 
 ## Building the CAP file
-- Copy the `javacard.properties.example` file to a file named
-  `javacard.properties`;
 
-- Edit the `javacard.properties` file and set the path of your
-  JavaCard Development Kit;
+- Set path to the JavaCard Development Kit:
+  `export JC_HOME="your/path/to/javacardkit"`
 
 - (Optional) Edit the `build.xml` file and replace the `0xAF:0xAF`
   bytes in the `APPLET_AID` with your own manufacturer identifier (see
-  section 4.2.1 of OpenPGP card specification);
+  section 4.2.1 of OpenPGP card specification). Alternatively, set the
+  right AID instance bytes during applet installation.
 
 - Execute `ant` with no parameter will produce the CAP file in
-  `build/fr/anssi/smartpgp/javacard/smartpgp.cap`.
+  `SmartPGPApplet.cap`.
 
 ## Building the CAP file with Gradle
 
