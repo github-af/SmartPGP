@@ -1,7 +1,7 @@
 # SmartPGP applet
 
 SmartPGP is a free and open source implementation of the [OpenPGP card
-3.x specification](http://www.g10code.com/docs/openpgp-card-3.0.pdf) in JavaCard.
+3.3 specification](https://gnupg.org/ftp/specs/OpenPGP-smart-card-application-3.3.pdf) in JavaCard.
 
 The main improvement introduced in OpenPGP card 3.x specification from
 previous version is the support of elliptic curve cryptography with
@@ -60,9 +60,9 @@ erased. Also note that hard coded default values will be restored upon
 a factory reset.
 
 
-## Compliance with OpenPGP card 3.x specification 
+## Compliance with OpenPGP card 3.3 specification
 
-The SmartPGP applet implements the complete OpenPGP card 3.x
+The SmartPGP applet implements the complete OpenPGP card 3.3
 specification, except the secure messaging related features:
 
 - Commands and responses protection is not implemented as described in
@@ -89,7 +89,7 @@ specification, except the secure messaging related features:
 
 # Application support
 
-Tokens following the OpenPGP card 3.x specification are not yet fully
+Tokens following the OpenPGP card 3.3 specification are not yet fully
 supported by most PGP applications.
 
 ## GnuPG
@@ -97,15 +97,13 @@ supported by most PGP applications.
 OpenPGP card 3.x is supported by [GnuPG](https://www.gnupg.org/)
 starting from version 2.1.16.
 
-The specific secure messaging of the SmartPGP applet is
-**not** supported at all at is not part of the OpenPGP card 3.x
-specification.
+The specific secure messaging of the SmartPGP applet is **not**
+supported at is not part of the OpenPGP card specification.
 
 ## OpenKeychain
 
 OpenPGP card 3.x is supported by [OpenKeychain](https://www.openkeychain.org/)
-starting from version 4.2 (not yet released, see [git master branch](https://github.com/open-keychain/open-keychain)
-project). Only NIST curves are supported.
+starting from version 4.2.
 
 The secure messaging of the SmartPGP applet is fully supported in
 OpenKeychain. See the section below for more information on the setup process.
@@ -136,9 +134,6 @@ The repository contains several directories:
 - JavaCard Development Kit 3.0.4 (or above) from
   [Oracle website](http://www.oracle.com/technetwork/java/embedded/javacard/downloads/index.html);
 
-- The `ant` tool 1.9.4 (or above) from your Linux distribution or from
-  [Apache Ant project website](http://ant.apache.org/);
-  
 - A device compliant with JavaCard 3.0.4 (or above) with enough
   available resources to hold the code (approximately 23 kB of
   non-volatile memory), persistent data (approximately 10 kB of
@@ -166,18 +161,17 @@ resource consumption by tweaking the following variables:
 
 
 ## Building the CAP file
-- Copy the `javacard.properties.example` file to a file named
-  `javacard.properties`;
 
-- Edit the `javacard.properties` file and set the path of your
-  JavaCard Development Kit;
+- Set path to the JavaCard Development Kit:
+  `export JC_HOME="your/path/to/javacardkit"`
 
 - (Optional) Edit the `build.xml` file and replace the `0xAF:0xAF`
   bytes in the `APPLET_AID` with your own manufacturer identifier (see
-  section 4.2.1 of OpenPGP card specification);
+  section 4.2.1 of OpenPGP card specification). Alternatively, set the
+  right AID instance bytes during applet installation.
 
 - Execute `ant` with no parameter will produce the CAP file in
-  `build/fr/anssi/smartpgp/javacard/smartpgp.cap`.
+  `SmartPGPApplet.cap`.
 
 ## Building the CAP file with Gradle
 
@@ -190,25 +184,25 @@ resource consumption by tweaking the following variables:
 ## Installing the CAP file
 
 The CAP file installation depends on your device, so you have to refer
-to the instructions given by your device manufacturer.
+to the instructions given by your device manufacturer. Most open cards
+relying on Global Platform with default keys are supported by
+[GlobalPlatformPro](https://github.com/martinpaljak/GlobalPlatformPro).
 
 Be careful to use a valid AID according to the OpenPGP card
-specification (see section 4.2.1) for each card.
+specification (see section 4.2.1) for each card (`-create <AID>` with
+GlobalPlatformPro)
 
 
 
 # Setting up secure messaging with OpenKeychain
 
-The patch written for OpenKeychain permits to use the secure
-messaging feature with or without token authentication.
-
 ## Secure messaging without token authentication
 
-Without token authentication, you are not protected against man-in-the
-middle attack as your device cannot ensure it is communicating
-directly with a trusted token. Nevertheless, the communications with
-the token are still protected in confidentiality against passive
-attacks (i.e. traffic capture).
+Without token authentication, you are not protected against
+man-in-the-middle attack as your device cannot ensure it is
+communicating directly with a trusted token. Nevertheless, the
+communications with the token are still protected in confidentiality
+against passive attacks (i.e. trafic capture).
 
 If you want to test secure messaging without token authentication, you
 can use the following command to order the token to generate its
