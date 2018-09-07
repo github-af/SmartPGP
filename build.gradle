@@ -1,34 +1,33 @@
-apply plugin: 'javacard'
-
 buildscript {
     repositories {
-        maven { url 'http://releases.marmeladburk.fidesmo.com/' }
+        jcenter()
     }
-
     dependencies {
-        classpath 'com.fidesmo:gradle-javacard:0.2.7'
+        classpath 'fr.bmartel:gradle-javacard:1.5.5'
     }
 }
 
-project.compileJava {
-    sourceCompatibility = '1.6'
-    targetCompatibility = '1.6'
+apply plugin: 'javacard'
+
+dependencies {
+    compile 'com.github.martinpaljak:globalplatformpro:18.09.14'
 }
 
 javacard {
-    sdkVersion = '3.0.4'
-
-    cap {
-        aid = '0xd2:0x76:0x00:0x01:0x24:0x01'
-        packageName = 'fr.anssi.smartpgp'
-        applet {
-            aid = '0xd2:0x76:0x00:0x01:0x24:0x01:0x03:0x03:0xAF:0xAF:0x00:0x00:0x00:0x00:0x00:0x00'
-            className = 'SmartPGPApplet'
+    config {
+        cap {
+            packageName 'fr.anssi.smartpgp'
+            version '1.0'
+            aid 'd2:76:00:01:24:01'
+            output 'SmartPGPApplet.cap'
+            applet {
+                className 'fr.anssi.smartpgp.SmartPGPApplet'
+                aid 'd2:76:00:01:24:01:03:03:AF:AF:00:00:00:00:00:00'
+            }
         }
-        version = '1.0'
     }
 }
- 
+
 /* Change source sets to be compatible with the original project layout. */
 sourceSets {
     main {
