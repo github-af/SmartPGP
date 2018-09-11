@@ -244,9 +244,11 @@ public final class Persistent {
         Common.beginTransaction(isRegistering);
         user_puk_length = (short)0;
         /* Ensures any previously defined PUK code is blocked at factory reset */
-        byte[] emptyPin = new byte[0];
+        byte[] emptyPin = new byte[1];
         while(user_puk.getTriesRemaining() > 0) {
-            user_puk.check(emptyPin, (short)0, (byte)0);
+            if(user_puk.check(emptyPin, (short)0, (byte)emptyPin.length)) {
+                ISOException.throwIt((short)0x9999);
+            }
         }
         Common.commitTransaction(isRegistering);
 
