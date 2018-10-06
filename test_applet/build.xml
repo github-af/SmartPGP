@@ -1,0 +1,13 @@
+<?xml version="1.0"?>
+<project name="test_applet" default="convert" basedir=".">
+  <description>Ant build for Test applet</description>
+  <get src="https://github.com/martinpaljak/ant-javacard/releases/download/18.06.25/ant-javacard.jar" dest="." skipexisting="true"/>
+  <taskdef name="javacard" classname="pro.javacard.ant.JavaCard" classpath="ant-javacard.jar"/>
+  <target name="convert">
+    <javacard>
+      <cap output="TestApplet.cap" sources="src" aid="aaaaaaaaaaaa" version="1.0">
+        <applet class="fr.anssi.smartpgp.TestApplet" aid="aaaaaaaaaaaa00000000000000000000"/>
+      </cap>
+    </javacard>
+  </target>
+</project>
