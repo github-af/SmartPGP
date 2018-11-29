@@ -258,12 +258,40 @@ public final class TestApplet extends Applet {
     }
 
     private final void processPin(final APDU apdu) {
-        if(0 <apdu.setIncomingAndReceive()) {
+        if(0 < apdu.setIncomingAndReceive()) {
             final boolean ok = pin.check(apdu.getBuffer(),
                                          apdu.getOffsetCdata(),
                                          (byte)apdu.getIncomingLength());
 
             pin.resetAndUnblock();
+
+            if(!ok) {
+                ISOException.throwIt(Data.SW_PIN_INVALID);
+            }
+        } else {
+            ISOException.throwIt(Data.SW_PIN_EMPTY);
+        }
+    }
+
+    private final void processPinT0(final APDU apdu) {
+
+        short blen = (short) (apdu.getBuffer()[ISO7816.OFFSET_LC] & 0x00FF);
+
+        if(0 < blen) {
+            short off = ISO7816.OFFSET_CDATA;
+            short read = apdu.setIncomingAndReceive();
+
+            while(0 < blen) {
+                blen -= read;
+                read = apdu.receiveBytes(off);
+                off += read;
+            }
+
+            pin.resetAndUnblock();
+
+            final boolean ok = pin.check(apdu.getBuffer(),
+                                         apdu.getOffsetCdata(),
+                                         (byte)apdu.getIncomingLength());
 
             if(!ok) {
                 ISOException.throwIt(Data.SW_PIN_INVALID);
@@ -301,7 +329,11 @@ public final class TestApplet extends Applet {
             break;
 
         case Data.INS_TEST_PIN:
-            processPin(apdu);
+            if(APDU.getProtocol() == APDU.PROTOCOL_T0) {
+                processPinT0(apdu);
+            } else {
+                processPin(apdu);
+            }
             break;
 
         default:
