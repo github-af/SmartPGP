@@ -7,15 +7,22 @@ public final class Data {
     public static final byte INS_TEST_RSA = (byte)0x01;
     public static final byte INS_TEST_RSA_CRT = (byte)0x02;
     public static final byte INS_TEST_EC = (byte)0x03;
+    public static final byte INS_TEST_PIN = (byte)0x04;
 
     public static final short SW_FAILED_TO_BUILD_PRIV_KEY = (short)0x6500;
     public static final short SW_FAILED_TO_BUILD_PUB_KEY = (short)0x6501;
     public static final short SW_PRIV_KEY_NOT_INITIALIZED = (short)0x6502;
     public static final short SW_PUB_KEY_NOT_INITIALIZED = (short)0x6503;
-
+    public static final short SW_PIN_INVALID = (short)0x6504;
+    public static final short SW_PIN_EMPTY = (short)0x6505;
 
     public static final short BUFFER_RED_LENGTH = (short)0x200;
     public static final short BUFFER_BLACK_LENGTH = (short)0x200;
+
+    public static final byte PIN_RETRY_COUNT = (byte)3;
+    public static final byte[] PIN_DEFAULT = {
+        (byte)0x31, (byte)0x32, (byte)0x33, (byte)0x34, (byte)0x35, (byte)0x36
+    };
 
 
     public static final byte[] RSA_1024_PUB_MODULUS_N = {

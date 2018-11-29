@@ -9,15 +9,17 @@ import javacardx.crypto.*;
 
 public final class TestApplet extends Applet {
 
-
     private final byte[] buffer_red;
     private final byte[] buffer_black;
+    private final OwnerPIN pin;
 
     public TestApplet() {
         buffer_red = JCSystem.makeTransientByteArray(Data.BUFFER_RED_LENGTH,
                                                      JCSystem.CLEAR_ON_DESELECT);
         buffer_black = JCSystem.makeTransientByteArray(Data.BUFFER_BLACK_LENGTH,
                                                        JCSystem.CLEAR_ON_DESELECT);
+        pin = new OwnerPIN(Data.PIN_RETRY_COUNT, (byte)Data.PIN_DEFAULT.length);
+        pin.update(Data.PIN_DEFAULT, (short)0, (byte)Data.PIN_DEFAULT.length);
     }
 
     public static final void install(byte[] buf, short off, byte len) {
@@ -255,6 +257,22 @@ public final class TestApplet extends Applet {
                                 buffer_black, (short)0);
     }
 
+    private final void processPin(final APDU apdu) {
+        if(0 <apdu.setIncomingAndReceive()) {
+            final boolean ok = pin.check(apdu.getBuffer(),
+                                         apdu.getOffsetCdata(),
+                                         (byte)apdu.getIncomingLength());
+
+            pin.resetAndUnblock();
+
+            if(!ok) {
+                ISOException.throwIt(Data.SW_PIN_INVALID);
+            }
+        } else {
+            ISOException.throwIt(Data.SW_PIN_EMPTY);
+        }
+    }
+
     public final void process(final APDU apdu) {
         final byte[] apdubuf = apdu.getBuffer();
 
@@ -280,6 +298,10 @@ public final class TestApplet extends Applet {
 
         case Data.INS_TEST_EC:
             processTestEc(p1, p2);
+            break;
+
+        case Data.INS_TEST_PIN:
+            processPin(apdu);
             break;
 
         default:

@@ -55,6 +55,11 @@ TEST_EC_P521_ALT_STATIC = [0x00, 0x03,
 TEST_EC_P521_ALT_GENERATE = [0x00, 0x03,
                              0x01, 0x11];
 
+TEST_PIN = [0x00, 0x04,
+            0x00, 0x00,
+            0x06,
+            0x31, 0x32, 0x33, 0x34, 0x35, 0x36];
+
 
 def assemble_with_len(prefix,data):
     return prefix + [len(data)] + data
@@ -128,6 +133,10 @@ def test_ec(con):
     select_applet(con, False)
     send_apdu(con, "Test NIST P-521 (size = 528) generate", TEST_EC_P521_ALT_GENERATE)
 
+def test_pin(con):
+    select_applet(con, False)
+    (data, _, _) = send_apdu(con, "Test PIN", TEST_PIN);
+
 def main():
     reader_list = smartcard.System.readers()
     r = reader_list[0]
@@ -137,6 +146,7 @@ def main():
     test_random(con)
     test_rsa(con)
     test_ec(con)
+    test_pin(con)
 
 if __name__=='__main__':
     main()
