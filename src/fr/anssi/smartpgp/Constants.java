@@ -85,6 +85,7 @@ public final class Constants {
     protected static final short TAG_ALGORITHM_ATTRIBUTES_SIG = (short)0x00c1;
     protected static final short TAG_ALGORITHM_ATTRIBUTES_DEC = (short)0x00c2;
     protected static final short TAG_ALGORITHM_ATTRIBUTES_AUT = (short)0x00c3;
+    protected static final short TAG_ALGORITHM_ATTRIBUTES_SM = (short)0x00d4;
     protected static final short TAG_PW_STATUS = (short)0x00c4;
     protected static final short TAG_KEY_FINGERPRINTS = (short)0x00c5;
     protected static final short TAG_CA_FINGERPRINTS = (short)0x00c6;
@@ -108,10 +109,12 @@ public final class Constants {
     protected static final short TAG_KEY_DERIVATION_FUNCTION = (short)0x00f9;
 
     protected static final short CRT_AUTHENTICATION_KEY = (short)0xa400;
+    protected static final short CRT_SECURE_MESSAGING_KEY = (short)0xa600;
     protected static final short CRT_SIGNATURE_KEY = (short)0xb600;
     protected static final short CRT_DECRYPTION_KEY = (short)0xb800;
 
     protected static final byte CLA_MASK_CHAINING = (byte)0x10;
+    protected static final byte CLA_MASK_SECURE_MESSAGING = (byte)0x04;
 
 
     protected static final byte INS_SELECT_DATA = (byte)0xA5;
@@ -155,7 +158,7 @@ public final class Constants {
     };
 
     protected static final byte[] EXTENDED_CAPABILITIES = {
-        (byte)(0x00 | /* support secure messaging */
+        (byte)(0x80 | /* support secure messaging */
                0x40 | /* support get challenge */
                0x20 | /* support key import */
                0x10 | /* support pw status changes */
@@ -163,7 +166,7 @@ public final class Constants {
                0x04 | /* support algorithm attributes changes */
                0x02 | /* support PSO:DEC/ENC AES */
                0x01), /* support KDF-DO */
-        (byte)0x00, /* SM 0x01 = 128 bits, 0x02 = 256 bits, 0x03 = SCP11b */
+        (byte)0x03, /* SM 0x01 = 128 bits, 0x02 = 256 bits, 0x03 = SCP11b */
         (byte)0x00, (byte)0x20, /* max length get challenge */
         (byte)0x04, (byte)0x80, /* max length of carholder certificate */
         (byte)0x00, (byte)0xff, /* max length of special DOs (private, login, url, KDF-DO) */
@@ -225,6 +228,12 @@ public final class Constants {
         (byte)0x08, (byte)0x00, /* 2048 bits modulus */
         (byte)0x00, (byte)0x11, /* 65537 = 17 bits public exponent */
         (byte)0x03 /* crt form with modulus */
+    };
+
+    protected static final byte[] ALGORITHM_ATTRIBUTES_DEFAULT_SECURE_MESSAGING = {
+        (byte)0x12, /* ECDH */
+        (byte)0x2A, (byte)0x86, (byte)0x48, (byte)0xCE, (byte)0x3D, (byte)0x03, (byte)0x01, (byte)0x07, /* ansix9p256r1 */
+        (byte)0xFF /* with public key */
     };
 
     protected static final byte[] RSA_EXPONENT = { (byte)0x01, (byte)0x00, (byte)0x01 };

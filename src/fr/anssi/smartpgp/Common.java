@@ -39,6 +39,13 @@ public final class Common {
         }
     }
 
+    protected static final short aesKeyLength(final ECParams params) {
+        if(params.nb_bits < (short)512) {
+            return (short)16;
+        } else {
+            return (short)32;
+        }
+    }
     protected static final short writeLength(final byte[] buf, short off, final short len) {
         if(len > 0xff) {
             buf[off] = (byte)0x82;
