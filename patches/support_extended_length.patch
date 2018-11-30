@@ -11,7 +11,7 @@ index b3c0f80..2ee1107 100644
  
      protected static final byte[] KEY_DERIVATION_FUNCTION_DEFAULT = {
          (byte)0x81, (byte)0x01, (byte)0x00
-@@ -149,7 +149,7 @@ public final class Constants {
+@@ -152,7 +152,7 @@ public final class Constants {
          (byte)0x73, /* card capabilities */
          (byte)0xC0, /* 1st byte: "methods supported" see ISO 7816-4 */
          (byte)0x01, /* 2nd byte: "data coding byte" idem */
@@ -31,9 +31,9 @@ index c47870f..78d446d 100644
 -public final class SmartPGPApplet extends Applet {
 +public final class SmartPGPApplet extends Applet implements ExtendedLength {
  
+     private final ECCurves ec;
      private final Persistent data;
- 
-@@ -104,7 +104,7 @@ public final class SmartPGPApplet extends Applet {
+@@ -112,7 +112,7 @@ public final class SmartPGPApplet extends Applet {
          short blen = apdu.setIncomingAndReceive();
  
          final short lc = apdu.getIncomingLength();
