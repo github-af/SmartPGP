@@ -1,7 +1,7 @@
-Index: smartpgp/src/fr/anssi/smartpgp/Constants.java
-===================================================================
---- smartpgp.orig/src/fr/anssi/smartpgp/Constants.java
-+++ smartpgp/src/fr/anssi/smartpgp/Constants.java
+diff --git a/src/fr/anssi/smartpgp/Constants.java b/src/fr/anssi/smartpgp/Constants.java
+index a678c1d..04395be 100644
+--- a/src/fr/anssi/smartpgp/Constants.java
++++ b/src/fr/anssi/smartpgp/Constants.java
 @@ -30,7 +30,7 @@ public final class Constants {
      protected static final short INTERNAL_BUFFER_MAX_LENGTH =
          (short)0x500;
@@ -11,7 +11,7 @@ Index: smartpgp/src/fr/anssi/smartpgp/Constants.java
  
      protected static final byte[] KEY_DERIVATION_FUNCTION_DEFAULT = {
          (byte)0x81, (byte)0x01, (byte)0x00
-@@ -174,7 +174,7 @@ public final class Constants {
+@@ -150,7 +150,7 @@ public final class Constants {
          (byte)0x73, /* card capabilities */
          (byte)0xC0, /* 1st byte: "methods supported" see ISO 7816-4 */
          (byte)0x01, /* 2nd byte: "data coding byte" idem */
@@ -20,10 +20,10 @@ Index: smartpgp/src/fr/anssi/smartpgp/Constants.java
  
          (byte)0x05, /* status indicator byte : operational state */
          (byte)0x90, /* SW1 */
-Index: smartpgp/src/fr/anssi/smartpgp/SmartPGPApplet.java
-===================================================================
---- smartpgp.orig/src/fr/anssi/smartpgp/SmartPGPApplet.java
-+++ smartpgp/src/fr/anssi/smartpgp/SmartPGPApplet.java
+diff --git a/src/fr/anssi/smartpgp/SmartPGPApplet.java b/src/fr/anssi/smartpgp/SmartPGPApplet.java
+index be5b3ed..99ceadd 100644
+--- a/src/fr/anssi/smartpgp/SmartPGPApplet.java
++++ b/src/fr/anssi/smartpgp/SmartPGPApplet.java
 @@ -25,7 +25,7 @@ import javacard.security.*;
  import javacardx.apdu.*;
  import javacardx.crypto.*;
@@ -33,3 +33,12 @@ Index: smartpgp/src/fr/anssi/smartpgp/SmartPGPApplet.java
  
      private final ECCurves ec;
      private final Persistent data;
+@@ -112,7 +112,7 @@ public final class SmartPGPApplet extends Applet {
+         short blen = apdu.setIncomingAndReceive();
+ 
+         final short lc = apdu.getIncomingLength();
+-        final short offcdata = ISO7816.OFFSET_CDATA;
++        final short offcdata = apdu.getOffsetCdata();
+ 
+         short off = transients.chainingInputLength();
+ 
