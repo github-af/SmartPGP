@@ -112,7 +112,7 @@ public final class SmartPGPApplet extends Applet {
         short blen = apdu.setIncomingAndReceive();
 
         final short lc = apdu.getIncomingLength();
-        final short offcdata = apdu.getOffsetCdata();
+        final short offcdata = ISO7816.OFFSET_CDATA;
 
         short off = transients.chainingInputLength();
 
