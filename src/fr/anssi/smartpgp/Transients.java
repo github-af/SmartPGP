@@ -31,7 +31,8 @@ public final class Transients {
     private static final byte SHORT_OFFSET_OUTPUT_START = SHORT_OFFSET_CURRENT_TAG + 1;
     private static final byte SHORT_OFFSET_OUTPUT_LENGTH = SHORT_OFFSET_OUTPUT_START + 1;
     private static final byte SHORT_OFFSET_CHAINING_INPUT_LENGTH = SHORT_OFFSET_OUTPUT_LENGTH + 1;
-    private static final byte SHORTS_SIZE = SHORT_OFFSET_CHAINING_INPUT_LENGTH + 1;
+    private static final byte SHORT_OFFSET_SECURE_MESSAGING_ENCRYPTION_COUNTER = SHORT_OFFSET_CHAINING_INPUT_LENGTH + 1;
+    private static final byte SHORTS_SIZE = SHORT_OFFSET_SECURE_MESSAGING_ENCRYPTION_COUNTER + 1;
 
     private final byte[] bytes;
     private static final byte BYTE_OFFSET_CHAINING_INPUT_INS = 0;
@@ -45,7 +46,8 @@ public final class Transients {
     private static final byte BOOLEAN_OFFSET_CHAINING_INPUT = BOOLEAN_OFFSET_CHAINING_OUTPUT + 1;
     private static final byte BOOLEAN_OFFSET_USER_PIN_MODE_81 = BOOLEAN_OFFSET_CHAINING_INPUT + 1;
     private static final byte BOOLEAN_OFFSET_USER_PIN_MODE_82 = BOOLEAN_OFFSET_USER_PIN_MODE_81 + 1;
-    private static final byte BOOLEANS_SIZE = BOOLEAN_OFFSET_USER_PIN_MODE_82 + 1;
+    private static final byte BOOLEAN_OFFSET_SECURE_MESSAGING_OK = BOOLEAN_OFFSET_USER_PIN_MODE_82 + 1;
+    private static final byte BOOLEANS_SIZE = BOOLEAN_OFFSET_SECURE_MESSAGING_OK + 1;
 
 
     protected Transients() {
@@ -85,6 +87,14 @@ public final class Transients {
 
     protected final short chainingInputLength() {
         return shorts[SHORT_OFFSET_CHAINING_INPUT_LENGTH];
+    }
+
+    protected final void setSecureMessagingEncryptionCounter(final short val) {
+        shorts[SHORT_OFFSET_SECURE_MESSAGING_ENCRYPTION_COUNTER] = val;
+    }
+
+    protected final short secureMessagingEncryptionCounter() {
+        return shorts[SHORT_OFFSET_SECURE_MESSAGING_ENCRYPTION_COUNTER];
     }
 
     protected final void setOutputStart(final short off) {
@@ -165,6 +175,14 @@ public final class Transients {
 
     protected final boolean userPinMode82() {
         return booleans[BOOLEAN_OFFSET_USER_PIN_MODE_82];
+    }
+
+    protected final void setSecureMessagingOk(final boolean ok) {
+        booleans[BOOLEAN_OFFSET_SECURE_MESSAGING_OK] = ok;
+    }
+
+    protected final boolean secureMessagingOk() {
+        return booleans[BOOLEAN_OFFSET_SECURE_MESSAGING_OK];
     }
 
 }
