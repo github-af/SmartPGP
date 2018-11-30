@@ -1,0 +1,13 @@
+Index: smartpgp/src/fr/anssi/smartpgp/ECCurves.java
+===================================================================
+--- smartpgp.orig/src/fr/anssi/smartpgp/ECCurves.java
++++ smartpgp/src/fr/anssi/smartpgp/ECCurves.java
+@@ -51,7 +51,7 @@ public final class ECCurves {
+                          (short)1);
+ 
+         final ECParams ansix9p521r1 =
+-            new ECParams((short)521,
++            new ECParams((short)528,
+                          ECConstants.ansix9p521r1_oid,
+                          ECConstants.ansix9p521r1_field,
+                          ECConstants.ansix9p521r1_a,
