@@ -46,6 +46,7 @@ public final class Common {
             return (short)32;
         }
     }
+
     protected static final short writeLength(final byte[] buf, short off, final short len) {
         if(len > 0xff) {
             buf[off] = (byte)0x82;
