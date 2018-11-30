@@ -237,6 +237,48 @@ def put_sm_key(connection, pubkey, privkey):
         apdu = assemble_with_len([cla] + ins_p1_p2, data)
         _raw_send_apdu(connection,"Sending SM key chunk",apdu)
 
+def put_sign_certificate(connection, cert):
+    prefix = [0x00, 0xA5, 0x02, 0x04]
+    data = [0x60, 0x04, 0x5C, 0x02, 0x7F, 0x21]
+    apdu = assemble_with_len(prefix, data)
+    _raw_send_apdu(connection,"Selecting SIGN certificate",apdu)
+    ins_p1_p2 = [0xDA, 0x7F, 0x21]
+    i = 0
+    cl = 255
+    l = len(cert)
+    while i < l:
+        if (l - i) <= cl:
+            cla = 0x00
+            data = cert[i:]
+            i = l
+        else:
+            cla = 0x10
+            data = cert[i:i+cl]
+            i = i + cl
+        apdu = assemble_with_len([cla] + ins_p1_p2, data)
+        _raw_send_apdu(connection,"Sending SIGN certificate chunk",apdu)
+
+def put_auth_certificate(connection, cert):
+    prefix = [0x00, 0xA5, 0x00, 0x04]
+    data = [0x60, 0x04, 0x5C, 0x02, 0x7F, 0x21]
+    apdu = assemble_with_len(prefix, data)
+    _raw_send_apdu(connection,"Selecting AUTH certificate",apdu)
+    ins_p1_p2 = [0xDA, 0x7F, 0x21]
+    i = 0
+    cl = 255
+    l = len(cert)
+    while i < l:
+        if (l - i) <= cl:
+            cla = 0x00
+            data = cert[i:]
+            i = l
+        else:
+            cla = 0x10
+            data = cert[i:i+cl]
+            i = i + cl
+        apdu = assemble_with_len([cla] + ins_p1_p2, data)
+        _raw_send_apdu(connection,"Sending AUTH certificate chunk",apdu)
+
 def put_sm_certificate(connection, cert):
     prefix = [0x00, 0xA5, 0x03, 0x04]
     data = [0x60, 0x04, 0x5C, 0x02, 0x7F, 0x21]

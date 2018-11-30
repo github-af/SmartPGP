@@ -41,6 +41,8 @@ VALID_COMMANDS={
         'set-resetting-code': CardConnectionContext.cmd_set_resetting_code,
         'unblock-pin': CardConnectionContext.cmd_unblock_pin,
         'put-sm-key': CardConnectionContext.cmd_put_sm_key,
+        'put-sign-certificate': CardConnectionContext.cmd_put_sign_certificate,
+        'put-auth-certificate': CardConnectionContext.cmd_put_auth_certificate,
         'put-sm-certificate': CardConnectionContext.cmd_put_sm_certificate,
         'get-sm-certificate': CardConnectionContext.cmd_get_sm_certificate,
         'put-aes-key': CardConnectionContext.cmd_put_aes_key,

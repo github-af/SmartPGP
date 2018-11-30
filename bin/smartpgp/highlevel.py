@@ -224,6 +224,30 @@ class CardConnectionContext:
         new_user_pin = self.read_pin("new user")
         unblock_pin(self.connection, resetting_code, new_user_pin)
 
+    def cmd_put_sign_certificate(self):
+        if self.input is None:
+            print "No input certificate file"
+            return
+        f = open(self.input, 'r')
+        cert = f.read()
+        cert = [ord(c) for c in cert]
+        f.close()
+        self.connect()
+        self.verify_admin_pin()
+        put_sign_certificate(self.connection, cert)
+
+    def cmd_put_auth_certificate(self):
+        if self.input is None:
+            print "No input certificate file"
+            return
+        f = open(self.input, 'r')
+        cert = f.read()
+        cert = [ord(c) for c in cert]
+        f.close()
+        self.connect()
+        self.verify_admin_pin()
+        put_auth_certificate(self.connection, cert)
+
     def cmd_put_sm_certificate(self):
         if self.input is None:
             print "No input certificate file"
