@@ -40,6 +40,9 @@ TEST_RSA_CRT_2048_GENERATE = [0x00, 0x02,
 TEST_EC_P256_STATIC = [0x00, 0x03,
                        0x00, 0x00];
 
+TEST_EC_P256_STATIC_NO_W = [0x00, 0x03,
+                            0x10, 0x00];
+
 TEST_EC_P256_GENERATE = [0x00, 0x03,
                          0x01, 0x00];
 
@@ -122,6 +125,8 @@ def test_rsa(con):
 def test_ec(con):
     select_applet(con, False)
     send_apdu(con, "Test NIST P-256 static", TEST_EC_P256_STATIC)
+    select_applet(con, False)
+    send_apdu(con, "Test NIST P-256 static (without W)", TEST_EC_P256_STATIC_NO_W)
     select_applet(con, False)
     send_apdu(con, "Test NIST P-256 generate", TEST_EC_P256_GENERATE)
     select_applet(con, False)

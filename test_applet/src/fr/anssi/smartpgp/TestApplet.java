@@ -141,20 +141,34 @@ public final class TestApplet extends Applet {
     }
 
     private final void processTestEc(final byte p1, final byte p2) {
-        boolean generate;
+        boolean generate, provide_w;
         short size;
         ECPrivateKey priv;
         ECPublicKey pub;
         byte[] field, a, b, g, r, s, w;
         short k;
 
-        switch(p1) {
+        switch(p1 & (byte)0x01) {
         case (byte)0x00:
             generate = false;
             break;
 
         case (byte)0x01:
             generate = true;
+            break;
+
+        default:
+            ISOException.throwIt(ISO7816.SW_WRONG_P1P2);
+            return;
+        }
+
+        switch(p1 & (byte)0x10) {
+        case (byte)0x00:
+            provide_w = true;
+            break;
+
+        case (byte)0x10:
+            provide_w = false;
             break;
 
         default:
@@ -237,7 +251,9 @@ public final class TestApplet extends Applet {
             kp.genKeyPair();
         } else {
             priv.setS(s, (short)0, (short)s.length);
-            pub.setW(w, (short)0, (short)w.length);
+            if(provide_w) {
+                pub.setW(w, (short)0, (short)w.length);
+            }
         }
 
         if(!pub.isInitialized()) {
