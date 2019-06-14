@@ -37,6 +37,8 @@ public final class PGPKey {
     protected final byte[] attributes;
     protected byte attributes_length;
 
+    private boolean has_been_generated;
+
     private KeyPair keys;
 
     private final Cipher cipher_rsa_pkcs1;
@@ -71,6 +73,8 @@ public final class PGPKey {
 
         fingerprint.reset(isRegistering);
 
+        has_been_generated = false;
+
         Util.arrayFillNonAtomic(generation_date, (short)0, Constants.GENERATION_DATE_SIZE, (byte)0);
     }
 
@@ -92,6 +96,18 @@ public final class PGPKey {
 
     protected final boolean isInitialized() {
         return (keys != null) && keys.getPrivate().isInitialized() && keys.getPublic().isInitialized();
+    }
+
+    protected final byte keyInformation() {
+        byte res = (byte)0x0;
+        if(isInitialized()) {
+            if(has_been_generated) {
+                res = (byte)0x01;
+            } else {
+                res = (byte)0x02;
+            }
+        }
+        return res;
     }
 
     protected final void setCertificate(final byte[] buf, final short off, final short len) {
@@ -203,7 +219,7 @@ public final class PGPKey {
         }
 
         resetKeys(false);
-
+        has_been_generated = true;
         keys = nkeys;
     }
 

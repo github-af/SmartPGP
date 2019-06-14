@@ -428,6 +428,17 @@ public final class SmartPGPApplet extends Applet {
                                           k.certificate_length);
             break;
 
+        case Constants.TAG_KEY_INFORMATION:
+            buf[off++] = (byte)0xde;
+            buf[off++] = (byte)0x06; /* len */
+            buf[off++] = (byte)0x01;
+            buf[off++] = data.pgp_keys[Persistent.PGP_KEYS_OFFSET_SIG].keyInformation();
+            buf[off++] = (byte)0x02;
+            buf[off++] = data.pgp_keys[Persistent.PGP_KEYS_OFFSET_DEC].keyInformation();
+            buf[off++] = (byte)0x03;
+            buf[off++] = data.pgp_keys[Persistent.PGP_KEYS_OFFSET_AUT].keyInformation();
+            break;
+
         case Constants.TAG_KEY_DERIVATION_FUNCTION:
             off = Util.arrayCopyNonAtomic(data.key_derivation_function, (short)0,
                                           buf, off,

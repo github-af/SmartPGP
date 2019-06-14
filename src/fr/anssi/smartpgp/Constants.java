@@ -98,6 +98,7 @@ public final class Constants {
     protected static final short TAG_GENERATION_DATE_SIG = (short)0x00ce;
     protected static final short TAG_GENERATION_DATE_DEC = (short)0x00cf;
     protected static final short TAG_GENERATION_DATE_AUT = (short)0x00d0;
+    protected static final short TAG_KEY_INFORMATION = (short)0x00de;
     protected static final short TAG_RESETTING_CODE = (short)0x00d3;
     protected static final short TAG_EXTENDED_LENGTH_INFORMATION = (short)0x7f66;
     protected static final short TAG_PRIVATE_DO_0101 = (short)0x0101;
