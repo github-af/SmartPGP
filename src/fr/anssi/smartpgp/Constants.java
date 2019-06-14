@@ -184,14 +184,6 @@ public final class Constants {
     }
 
 
-    protected static final byte[] DSI_SHA224_HEADER = {
-        (byte)0x30, (byte)0x2D,
-        (byte)0x30, (byte)0x0D,
-        (byte)0x06, (byte)0x09, (byte)0x60, (byte)0x86, (byte)0x48, (byte)0x01, (byte)0x65, (byte)0x03, (byte)0x04, (byte)0x02, (byte)0x04,
-        (byte)0x05, (byte)0x00,
-        (byte)0x04, (byte)0x1C
-    };
-
     protected static final byte[] DSI_SHA256_HEADER = {
         (byte)0x30, (byte)0x31,
         (byte)0x30, (byte)0x0D,

@@ -449,9 +449,7 @@ public final class PGPKey {
         if(isRsa()) {
 
             if(!forAuth) {
-                if(lc == (short)(2 + Constants.DSI_SHA224_HEADER[1])) {
-                    sha_header = Constants.DSI_SHA224_HEADER;
-                } else if(lc == (short)(2 + Constants.DSI_SHA256_HEADER[1])) {
+                if(lc == (short)(2 + Constants.DSI_SHA256_HEADER[1])) {
                     sha_header = Constants.DSI_SHA256_HEADER;
                 } else if(lc == (short)(2 + Constants.DSI_SHA384_HEADER[1])) {
                     sha_header = Constants.DSI_SHA384_HEADER;
