@@ -472,9 +472,9 @@ public final class SmartPGPApplet extends Applet {
             break;
 
         case Constants.TAG_ALGORITHM_INFORMATION:
-            off = Common.writeAlgorithmInformation((byte)0xc1, buf, off); /* SIG */
-            off = Common.writeAlgorithmInformation((byte)0xc2, buf, off); /* DEC */
-            off = Common.writeAlgorithmInformation((byte)0xc3, buf, off); /* AUT */
+            off = Common.writeAlgorithmInformation(ec, (byte)0xc1, false, buf, off); /* SIG */
+            off = Common.writeAlgorithmInformation(ec, (byte)0xc2, true, buf, off); /* DEC */
+            off = Common.writeAlgorithmInformation(ec, (byte)0xc3, false, buf, off); /* AUT */
             break;
 
         default:
