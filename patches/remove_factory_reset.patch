@@ -2,7 +2,7 @@ diff --git a/src/fr/anssi/smartpgp/SmartPGPApplet.java b/src/fr/anssi/smartpgp/S
 index c47870f..87162fb 100644
 --- a/src/fr/anssi/smartpgp/SmartPGPApplet.java
 +++ b/src/fr/anssi/smartpgp/SmartPGPApplet.java
-@@ -1261,10 +1261,12 @@ public final class SmartPGPApplet extends Applet {
+@@ -1329,10 +1329,12 @@ public final class SmartPGPApplet extends Applet {
              return;
          }
  
