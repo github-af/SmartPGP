@@ -107,6 +107,7 @@ public final class Constants {
     protected static final short TAG_PRIVATE_DO_0104 = (short)0x0104;
     protected static final short TAG_AES_KEY = (short)0x00d5;
     protected static final short TAG_KEY_DERIVATION_FUNCTION = (short)0x00f9;
+    protected static final short TAG_ALGORITHM_INFORMATION = (short)0x00fa;
 
     protected static final short CRT_AUTHENTICATION_KEY = (short)0xa400;
     protected static final short CRT_SIGNATURE_KEY = (short)0xb600;

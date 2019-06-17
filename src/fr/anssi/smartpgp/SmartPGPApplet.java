@@ -445,6 +445,12 @@ public final class SmartPGPApplet extends Applet {
                                           data.key_derivation_function_length);
             break;
 
+        case Constants.TAG_ALGORITHM_INFORMATION:
+            off = Common.writeAlgorithmInformation((byte)0xc1, buf, off); /* SIG */
+            off = Common.writeAlgorithmInformation((byte)0xc2, buf, off); /* DEC */
+            off = Common.writeAlgorithmInformation((byte)0xc3, buf, off); /* AUT */
+            break;
+
         default:
             ISOException.throwIt(Constants.SW_REFERENCE_DATA_NOT_FOUND);
             return 0;

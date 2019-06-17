@@ -147,4 +147,19 @@ public final class Common {
         }
     }
 
+    protected static final short writeAlgorithmInformation(final byte key_tag,
+                                                           final byte[] buf, short off) {
+        for(short m = 2; m <= 4; ++m) {
+            for(byte form = 1; form <= 3; form += 2) {
+                buf[off++] = key_tag;
+                buf[off++] = (byte)6; /* len */
+                buf[off++] = (byte)0x01; /* RSA */
+                off = Util.setShort(buf, off, (short)(m * 1024)); /* modulus bit size */
+                off = Util.setShort(buf, off, (short)0x11); /* 65537 = 17 bits public exponent size */
+                buf[off++] = form;
+            }
+        }
+
+        return off;
+    }
 }
