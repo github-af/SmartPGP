@@ -109,9 +109,9 @@ public final class Constants {
     protected static final short TAG_KEY_DERIVATION_FUNCTION = (short)0x00f9;
     protected static final short TAG_ALGORITHM_INFORMATION = (short)0x00fa;
 
-    protected static final short CRT_AUTHENTICATION_KEY = (short)0xa400;
-    protected static final short CRT_SIGNATURE_KEY = (short)0xb600;
-    protected static final short CRT_DECRYPTION_KEY = (short)0xb800;
+    protected static final byte CRT_TAG_AUTHENTICATION_KEY = (byte)0xa4;
+    protected static final byte CRT_TAG_SIGNATURE_KEY = (byte)0xb6;
+    protected static final byte CRT_TAG_DECRYPTION_KEY = (byte)0xb8;
 
     protected static final byte CLA_MASK_CHAINING = (byte)0x10;
 
