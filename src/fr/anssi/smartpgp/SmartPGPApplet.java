@@ -477,6 +477,14 @@ public final class SmartPGPApplet extends Applet {
             off = Common.writeAlgorithmInformation(ec, (byte)0xc3, false, buf, off); /* AUT */
             break;
 
+        case Constants.TAG_SECURE_MESSAGING_CERTIFICATE:
+            k = sm.static_key;
+
+            off = Util.arrayCopyNonAtomic(k.certificate, (short)0,
+                                          buf, off,
+                                          k.certificate_length);
+            break;
+
         default:
             ISOException.throwIt(Constants.SW_REFERENCE_DATA_NOT_FOUND);
             return 0;
@@ -1128,6 +1136,12 @@ public final class SmartPGPApplet extends Applet {
                 Util.arrayCopyNonAtomic(buf, (short)0, data.key_derivation_function, (short)0, lc);
                 data.key_derivation_function_length = (byte)lc;
                 JCSystem.commitTransaction();
+                break;
+
+            case Constants.TAG_SECURE_MESSAGING_CERTIFICATE:
+                assertAdmin();
+                k = sm.static_key;
+                k.setCertificate(buf, (short)0, lc);
                 break;
 
             default:
