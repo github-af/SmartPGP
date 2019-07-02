@@ -1,7 +1,7 @@
 # SmartPGP applet
 
 SmartPGP is a free and open source implementation of the [OpenPGP card
-3.3 specification](https://gnupg.org/ftp/specs/OpenPGP-smart-card-application-3.3.pdf) in JavaCard.
+3.4 specification](https://gnupg.org/ftp/specs/OpenPGP-smart-card-application-3.4.pdf) in JavaCard.
 
 The main improvement introduced in OpenPGP card 3.x specification from
 previous version is the support of elliptic curve cryptography with
@@ -60,9 +60,9 @@ erased. Also note that hard coded default values will be restored upon
 a factory reset.
 
 
-## Compliance with OpenPGP card 3.3 specification
+## Compliance with OpenPGP card 3.4 specification
 
-The SmartPGP applet implements the complete OpenPGP card 3.3
+The SmartPGP applet implements the complete OpenPGP card 3.4
 specification, except the secure messaging related features:
 
 - Commands and responses protection is not implemented as described in
@@ -89,7 +89,7 @@ specification, except the secure messaging related features:
 
 # Application support
 
-Tokens following the OpenPGP card 3.3 specification are not yet fully
+Tokens following the OpenPGP card 3.4 specification are not yet fully
 supported by most PGP applications.
 
 ## GnuPG
