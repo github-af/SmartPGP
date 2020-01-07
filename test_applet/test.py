@@ -37,6 +37,30 @@ TEST_RSA_CRT_2048_STATIC = [0x00, 0x02,
 TEST_RSA_CRT_2048_GENERATE = [0x00, 0x02,
                               0x01, 0x01];
 
+TEST_RSA_3072_STATIC = [0x00, 0x01,
+                        0x00, 0x02];
+
+TEST_RSA_3072_GENERATE = [0x00, 0x01,
+                          0x01, 0x02];
+
+TEST_RSA_CRT_3072_STATIC = [0x00, 0x02,
+                            0x00, 0x02];
+
+TEST_RSA_CRT_3072_GENERATE = [0x00, 0x02,
+                              0x01, 0x02];
+
+TEST_RSA_4096_STATIC = [0x00, 0x01,
+                        0x00, 0x03];
+
+TEST_RSA_4096_GENERATE = [0x00, 0x01,
+                          0x01, 0x03];
+
+TEST_RSA_CRT_4096_STATIC = [0x00, 0x02,
+                            0x00, 0x03];
+
+TEST_RSA_CRT_4096_GENERATE = [0x00, 0x02,
+                              0x01, 0x03];
+
 TEST_EC_P256_STATIC = [0x00, 0x03,
                        0x00, 0x00];
 
@@ -121,6 +145,22 @@ def test_rsa(con):
     send_apdu(con, "Test RSA_CRT 2048 static", TEST_RSA_CRT_2048_STATIC)
     select_applet(con, False)
     send_apdu(con, "Test RSA_CRT 2048 generate", TEST_RSA_CRT_2048_GENERATE)
+    select_applet(con, False)
+    send_apdu(con, "Test RSA 3072 static", TEST_RSA_3072_STATIC)
+    select_applet(con, False)
+    send_apdu(con, "Test RSA 3072 generate", TEST_RSA_3072_GENERATE)
+    select_applet(con, False)
+    send_apdu(con, "Test RSA_CRT 3072 static", TEST_RSA_CRT_3072_STATIC)
+    select_applet(con, False)
+    send_apdu(con, "Test RSA_CRT 3072 generate", TEST_RSA_CRT_3072_GENERATE)
+    select_applet(con, False)
+    send_apdu(con, "Test RSA 4096 static", TEST_RSA_4096_STATIC)
+    select_applet(con, False)
+    send_apdu(con, "Test RSA 4096 generate", TEST_RSA_4096_GENERATE)
+    select_applet(con, False)
+    send_apdu(con, "Test RSA_CRT 4096 static", TEST_RSA_CRT_4096_STATIC)
+    select_applet(con, False)
+    send_apdu(con, "Test RSA_CRT 4096 generate", TEST_RSA_CRT_4096_GENERATE)
 
 def test_ec(con):
     select_applet(con, False)

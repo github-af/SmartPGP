@@ -77,6 +77,30 @@ public final class TestApplet extends Applet {
             d = Data.RSA_2048_PRIV_EXPONENT_D;
             break;
 
+        case (byte)0x02:
+            size = (short)3072;
+            p = Data.RSA_3072_PRIV_PRIME_P;
+            q = Data.RSA_3072_PRIV_PRIME_Q;
+            pq = Data.RSA_3072_PRIV_PQ;
+            dp1 = Data.RSA_3072_PRIV_EXPONENT_DP1;
+            dq1 = Data.RSA_3072_PRIV_EXPONENT_DQ1;
+            n = Data.RSA_3072_PUB_MODULUS_N;
+            e = Data.RSA_3072_PUB_EXPONENT_E;
+            d = Data.RSA_3072_PRIV_EXPONENT_D;
+            break;
+
+        case (byte)0x03:
+            size = (short)4096;
+            p = Data.RSA_4096_PRIV_PRIME_P;
+            q = Data.RSA_4096_PRIV_PRIME_Q;
+            pq = Data.RSA_4096_PRIV_PQ;
+            dp1 = Data.RSA_4096_PRIV_EXPONENT_DP1;
+            dq1 = Data.RSA_4096_PRIV_EXPONENT_DQ1;
+            n = Data.RSA_4096_PUB_MODULUS_N;
+            e = Data.RSA_4096_PUB_EXPONENT_E;
+            d = Data.RSA_4096_PRIV_EXPONENT_D;
+            break;
+
         default:
             ISOException.throwIt(ISO7816.SW_WRONG_P1P2);
             return;
