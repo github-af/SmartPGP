@@ -42,7 +42,7 @@ public final class SmartPGPApplet extends Applet {
     }
 
     public static final void install(byte[] buf, short off, byte len) {
-        new SmartPGPApplet().register();
+        new SmartPGPApplet().register(buf, (short)(off + 1), buf[off]);
     }
 
     private final PGPKey currentTagOccurenceToKey() {
