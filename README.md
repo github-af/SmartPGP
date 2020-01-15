@@ -139,6 +139,24 @@ The repository contains several directories:
   non-volatile memory), persistent data (approximately 10 kB of
   non-volatile memory) and volatile data (approximately 2 kB of RAM).
 
+
+## Importing RSA keys above 2048 bits (3072 or 4096 bits)
+
+The size of the internal buffer is set by default to a value that
+permits to import RSA 2048 bits. If your card is able to deal with RSA
+keys of 3072 or 4096 bits and you want to be able to import such keys,
+then you need to adjust the size of this buffer:
+
+- for RSA 2048 bits, `Constants.INTERNAL_BUFFER_MAX_LENGTH` must be at
+  least `(short)0x3b0`;
+
+- for RSA 3072 bits, `Constants.INTERNAL_BUFFER_MAX_LENGTH` must be at
+  least `(short)0x570`;
+
+- for RSA 4096 bits, `Constants.INTERNAL_BUFFER_MAX_LENGTH` must be at
+  least `(short)0x730`.
+
+
 ## Reducing flash and/or RAM consumption
 
 The applet allocates all its data structures to their maximal size
@@ -151,7 +169,7 @@ resource consumption by tweaking the following variables:
 - `Constants.INTERNAL_BUFFER_MAX_LENGTH`: the size in bytes of the
   internal RAM buffer used for input/output chaining. Chaining is
   especially used in case of long commands and responses such as those
-  involved in private key import and certificate import/export.
+  involved in private key import and certificate import/export;
   
 - `Constants.EXTENDED_CAPABILITIES`, bytes 5 and 6: the maximal size
   in bytes of a certificate associated to a key. Following the OpenPGP
