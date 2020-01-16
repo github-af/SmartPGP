@@ -16,7 +16,7 @@ project.compileJava {
 }
 
 javacard {
-    sdkVersion = '3.0.1'
+    sdkVersion = '3.0.4'
 
     cap {
         aid = '0xd2:0x76:0x00:0x01:0x24:0x01'
