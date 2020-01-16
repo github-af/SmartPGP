@@ -37,18 +37,27 @@ public final class PGPKey {
     protected final byte[] attributes;
     protected byte attributes_length;
 
+    protected final boolean is_secure_messaging_key;
+
     private boolean has_been_generated;
 
     private KeyPair keys;
 
     private final Cipher cipher_rsa_pkcs1;
 
-    protected PGPKey() {
+    protected PGPKey(final boolean for_secure_messaging) {
 
-        cipher_rsa_pkcs1 = Cipher.getInstance(Cipher.ALG_RSA_PKCS1, false);
+        is_secure_messaging_key = for_secure_messaging;
 
-        fingerprint = new Fingerprint();
-        generation_date = new byte[Constants.GENERATION_DATE_SIZE];
+        if(is_secure_messaging_key) {
+            cipher_rsa_pkcs1 = null;
+            fingerprint = null;
+            generation_date = null;
+        } else {
+            cipher_rsa_pkcs1 = Cipher.getInstance(Cipher.ALG_RSA_PKCS1, false);
+            fingerprint = new Fingerprint();
+            generation_date = new byte[Constants.GENERATION_DATE_SIZE];
+        }
 
         certificate = new byte[Constants.cardholderCertificateMaxLength()];
         certificate_length = 0;
@@ -71,11 +80,13 @@ public final class PGPKey {
             Util.arrayFillNonAtomic(certificate, (short)0, certificate_length, (byte)0);
         }
 
-        fingerprint.reset(isRegistering);
+        if(!is_secure_messaging_key) {
+            fingerprint.reset(isRegistering);
+
+            Util.arrayFillNonAtomic(generation_date, (short)0, Constants.GENERATION_DATE_SIZE, (byte)0);
+        }
 
         has_been_generated = false;
-
-        Util.arrayFillNonAtomic(generation_date, (short)0, Constants.GENERATION_DATE_SIZE, (byte)0);
     }
 
     protected final void reset(final boolean isRegistering) {
@@ -87,10 +98,17 @@ public final class PGPKey {
             attributes_length = (byte)0;
         }
 
-        Util.arrayCopyNonAtomic(Constants.ALGORITHM_ATTRIBUTES_DEFAULT, (short)0,
-                                attributes, (short)0,
-                                (short)Constants.ALGORITHM_ATTRIBUTES_DEFAULT.length);
-        attributes_length = (byte)Constants.ALGORITHM_ATTRIBUTES_DEFAULT.length;
+        if(is_secure_messaging_key) {
+            Util.arrayCopyNonAtomic(Constants.ALGORITHM_ATTRIBUTES_DEFAULT_SECURE_MESSAGING, (short)0,
+                                    attributes, (short)0,
+                                    (short)Constants.ALGORITHM_ATTRIBUTES_DEFAULT_SECURE_MESSAGING.length);
+            attributes_length = (byte)Constants.ALGORITHM_ATTRIBUTES_DEFAULT_SECURE_MESSAGING.length;
+        } else {
+            Util.arrayCopyNonAtomic(Constants.ALGORITHM_ATTRIBUTES_DEFAULT, (short)0,
+                                    attributes, (short)0,
+                                    (short)Constants.ALGORITHM_ATTRIBUTES_DEFAULT.length);
+            attributes_length = (byte)Constants.ALGORITHM_ATTRIBUTES_DEFAULT.length;
+        }
         Common.commitTransaction(isRegistering);
     }
 
@@ -144,7 +162,7 @@ public final class PGPKey {
 
         switch(buf[off]) {
         case 0x01:
-            if(len != 6) {
+            if((len != 6) || is_secure_messaging_key) {
                 ISOException.throwIt(ISO7816.SW_WRONG_DATA);
                 return;
             }
@@ -166,6 +184,10 @@ public final class PGPKey {
             final ECParams params = ec.findByOid(buf, (short)(off + 1), (byte)(len - 1 - delta));
             if(params == null) {
                 ISOException.throwIt(ISO7816.SW_WRONG_DATA);
+                return;
+            }
+            if((buf[0] != 0x12) && is_secure_messaging_key) {
+                ISOException.throwIt(ISO7816.SW_CONDITIONS_NOT_SATISFIED);
                 return;
             }
             break;
