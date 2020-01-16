@@ -147,8 +147,20 @@ public final class Common {
         }
     }
 
-    protected static final short writeAlgorithmInformation(final byte key_tag,
+    protected static final short writeAlgorithmInformation(final ECCurves ec,
+                                                           final byte key_tag, final boolean is_dec,
                                                            final byte[] buf, short off) {
+        for(short i = 0; i < ec.curves.length; ++i) {
+            buf[off++] = key_tag;
+            buf[off++] = (byte)(1 + ec.curves[i].oid.length + 1); /* len */
+            if(is_dec) buf[off++] = (byte)0x12; /* ECDH */
+            else buf[off++] = (byte)0x13; /* ECDSA */
+            off = Util.arrayCopyNonAtomic(ec.curves[i].oid, (short)0,
+                                          buf, off,
+                                          (short)ec.curves[i].oid.length);
+            buf[off++] = (byte)0xff; /* with public key */
+        }
+
         for(short m = 2; m <= 4; ++m) {
             for(byte form = 1; form <= 3; form += 2) {
                 buf[off++] = key_tag;
