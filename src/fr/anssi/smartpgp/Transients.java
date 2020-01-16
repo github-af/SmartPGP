@@ -166,5 +166,4 @@ public final class Transients {
     protected final boolean userPinMode82() {
         return booleans[BOOLEAN_OFFSET_USER_PIN_MODE_82];
     }
-
 }
