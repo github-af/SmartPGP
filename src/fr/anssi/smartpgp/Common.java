@@ -28,11 +28,27 @@ public final class Common {
     protected final Cipher cipher_aes_cbc_nopad;
     protected final Cipher cipher_rsa_pkcs1;
 
+    protected final Signature sign_ecdsa_sha;
+    protected final Signature sign_ecdsa_sha_224;
+    protected final Signature sign_ecdsa_sha_256;
+    protected final Signature sign_ecdsa_sha_384;
+    protected final Signature sign_ecdsa_sha_512;
+
+    protected final KeyAgreement ka_ec_dh;
+
     protected final RandomData random;
 
     protected Common() {
         cipher_aes_cbc_nopad = Cipher.getInstance(Cipher.ALG_AES_BLOCK_128_CBC_NOPAD, false);
         cipher_rsa_pkcs1 = Cipher.getInstance(Cipher.ALG_RSA_PKCS1, false);
+
+        sign_ecdsa_sha = Signature.getInstance(Signature.ALG_ECDSA_SHA, false);
+        sign_ecdsa_sha_224 = Signature.getInstance(Signature.ALG_ECDSA_SHA_224, false);
+        sign_ecdsa_sha_256 = Signature.getInstance(Signature.ALG_ECDSA_SHA_256, false);
+        sign_ecdsa_sha_384 = Signature.getInstance(Signature.ALG_ECDSA_SHA_384, false);
+        sign_ecdsa_sha_512 = Signature.getInstance(Signature.ALG_ECDSA_SHA_512, false);
+
+        ka_ec_dh = KeyAgreement.getInstance(KeyAgreement.ALG_EC_SVDP_DH_PLAIN, false);
 
         random = RandomData.getInstance(RandomData.ALG_SECURE_RANDOM);
     }
@@ -157,8 +173,20 @@ public final class Common {
         }
     }
 
-    protected static final short writeAlgorithmInformation(final byte key_tag,
+    protected static final short writeAlgorithmInformation(final ECCurves ec,
+                                                           final byte key_tag, final boolean is_dec,
                                                            final byte[] buf, short off) {
+        for(short i = 0; i < ec.curves.length; ++i) {
+            buf[off++] = key_tag;
+            buf[off++] = (byte)(1 + ec.curves[i].oid.length + 1); /* len */
+            if(is_dec) buf[off++] = (byte)0x12; /* ECDH */
+            else buf[off++] = (byte)0x13; /* ECDSA */
+            off = Util.arrayCopyNonAtomic(ec.curves[i].oid, (short)0,
+                                          buf, off,
+                                          (short)ec.curves[i].oid.length);
+            buf[off++] = (byte)0xff; /* with public key */
+        }
+
         for(short m = 2; m <= 4; ++m) {
             for(byte form = Constants.RSA_IMPORT_SUPPORTS_FORMAT_1 ? 1 : 3; form <= 3; form += 2) {
                 buf[off++] = key_tag;
