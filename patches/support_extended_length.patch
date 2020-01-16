@@ -1,5 +1,5 @@
 diff --git a/src/fr/anssi/smartpgp/Constants.java b/src/fr/anssi/smartpgp/Constants.java
-index b3c0f80..2ee1107 100644
+index 6a66b73..fb9d1d1 100644
 --- a/src/fr/anssi/smartpgp/Constants.java
 +++ b/src/fr/anssi/smartpgp/Constants.java
 @@ -149,7 +149,7 @@ public final class Constants {
