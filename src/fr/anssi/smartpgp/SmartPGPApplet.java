@@ -29,6 +29,7 @@ public final class SmartPGPApplet extends Applet {
 
     private final ECCurves ec;
     private final Persistent data;
+    private final SecureMessaging sm;
 
     private final Transients transients;
 
@@ -43,6 +44,7 @@ public final class SmartPGPApplet extends Applet {
 
         data = new Persistent();
         transients = new Transients();
+        sm = new SecureMessaging(transients);
     }
 
     public static final void install(byte[] buf, short off, byte len) {
@@ -57,6 +59,8 @@ public final class SmartPGPApplet extends Applet {
             return data.pgp_keys[Persistent.PGP_KEYS_OFFSET_DEC];
         case 2:
             return data.pgp_keys[Persistent.PGP_KEYS_OFFSET_SIG];
+        case 3:
+            return sm.static_key;
         default:
             ISOException.throwIt(Constants.SW_REFERENCE_DATA_NOT_FOUND);
             return null;
@@ -130,6 +134,15 @@ public final class SmartPGPApplet extends Applet {
     }
 
     private final void sensitiveData() {
+        final byte proto = APDU.getProtocol();
+
+        if(((proto & APDU.PROTOCOL_MEDIA_MASK) == APDU.PROTOCOL_MEDIA_CONTACTLESS_TYPE_A) ||
+           ((proto & APDU.PROTOCOL_MEDIA_MASK) == APDU.PROTOCOL_MEDIA_CONTACTLESS_TYPE_B)) {
+            if(sm.isInitialized() && !transients.secureMessagingOk()) {
+                ISOException.throwIt(ISO7816.SW_CONDITIONS_NOT_SATISFIED);
+                return;
+            }
+        }
     }
 
     private final void assertAdmin() {
@@ -342,6 +355,15 @@ public final class SmartPGPApplet extends Applet {
                                           k.attributes_length);
             break;
 
+        case Constants.TAG_ALGORITHM_ATTRIBUTES_SM:
+            buf[off++] = (byte)0xd4;
+            k = sm.static_key;
+            off = Common.writeLength(buf, off, k.attributes_length);
+            off = Util.arrayCopyNonAtomic(k.attributes, (short)0,
+                                          buf, off,
+                                          k.attributes_length);
+            break;
+
         case Constants.TAG_APPLICATION_RELATED_DATA:
             tlen = (short)(1 + 1 + Constants.EXTENDED_CAPABILITIES.length +
                            1 + 1 + data.pgp_keys[Persistent.PGP_KEYS_OFFSET_SIG].attributes_length +
@@ -460,6 +482,14 @@ public final class SmartPGPApplet extends Applet {
             off = Common.writeAlgorithmInformation(ec, (byte)0xc1, false, buf, off); /* SIG */
             off = Common.writeAlgorithmInformation(ec, (byte)0xc2, true, buf, off); /* DEC */
             off = Common.writeAlgorithmInformation(ec, (byte)0xc3, false, buf, off); /* AUT */
+            break;
+
+        case Constants.TAG_SECURE_MESSAGING_CERTIFICATE:
+            k = sm.static_key;
+
+            off = Util.arrayCopyNonAtomic(k.certificate, (short)0,
+                                          buf, off,
+                                          k.certificate_length);
             break;
 
         default:
@@ -853,6 +883,11 @@ public final class SmartPGPApplet extends Applet {
                 extended_expect = (byte)0x03;
                 break;
 
+            case Constants.CRT_TAG_SECURE_MESSAGING_KEY:
+                k = sm.static_key;
+                extended_expect = (byte)0x04;
+                break;
+
             default:
                 ISOException.throwIt(ISO7816.SW_WRONG_DATA);
                 return;
@@ -1089,6 +1124,11 @@ public final class SmartPGPApplet extends Applet {
                 data.pgp_keys[Persistent.PGP_KEYS_OFFSET_AUT].setAttributes(ec, buf, (short)0, lc);
                 break;
 
+            case Constants.TAG_ALGORITHM_ATTRIBUTES_SM:
+                assertAdmin();
+                sm.static_key.setAttributes(ec, buf, (short)0, lc);
+                break;
+
             case Constants.TAG_PW_STATUS:
                 assertAdmin();
                 if(lc != 0x01) {
@@ -1177,6 +1217,12 @@ public final class SmartPGPApplet extends Applet {
                 JCSystem.commitTransaction();
                 break;
 
+            case Constants.TAG_SECURE_MESSAGING_CERTIFICATE:
+                assertAdmin();
+                k = sm.static_key;
+                k.setCertificate(buf, (short)0, lc);
+                break;
+
             default:
                 ISOException.throwIt(Constants.SW_REFERENCE_DATA_NOT_FOUND);
                 return;
@@ -1219,6 +1265,11 @@ public final class SmartPGPApplet extends Applet {
         case Constants.CRT_TAG_AUTHENTICATION_KEY:
             pkey = data.pgp_keys[Persistent.PGP_KEYS_OFFSET_AUT];
             extended_expect = (byte)0x03;
+            break;
+
+        case Constants.CRT_TAG_SECURE_MESSAGING_KEY:
+            pkey = sm.static_key;
+            extended_expect = (byte)0x04;
             break;
 
         default:
@@ -1375,6 +1426,9 @@ public final class SmartPGPApplet extends Applet {
                 sensitiveData();
                 assertUserMode82();
                 return data.pgp_keys[Persistent.PGP_KEYS_OFFSET_AUT].sign(transients.buffer, lc, true);
+
+            case (byte)0x01:
+                return sm.establish(transients, ec, transients.buffer, lc);
             }
         }
 
@@ -1422,6 +1476,7 @@ public final class SmartPGPApplet extends Applet {
         data.isTerminated = true;
     }
 
+    @SuppressWarnings("fallthrough")
     private final void processActivateFile(final byte p1, final byte p2) {
         if(p1 != (byte)0) {
             ISOException.throwIt(ISO7816.SW_WRONG_P1P2);
@@ -1430,6 +1485,10 @@ public final class SmartPGPApplet extends Applet {
 
         if(data.isTerminated) {
             switch(p2) {
+            case (byte)1:
+                sm.reset(false, transients);
+                //missing break is intentional
+
             case (byte)0:
                 transients.clear();
                 data.reset(false);
@@ -1447,6 +1506,7 @@ public final class SmartPGPApplet extends Applet {
         data.user_puk.reset();
         data.admin_pin.reset();
         transients.clear();
+        sm.clearSession(transients);
     }
 
     public final void process(final APDU apdu) {
@@ -1463,6 +1523,8 @@ public final class SmartPGPApplet extends Applet {
 
             return;
         }
+
+        transients.setSecureMessagingOk(false);
 
         if(data.isTerminated) {
             if(apdubuf[ISO7816.OFFSET_CLA] != 0) {
@@ -1512,6 +1574,34 @@ public final class SmartPGPApplet extends Applet {
             receiveData(apdu);
 
             short lc = transients.chainingInputLength();
+
+            if((apdubuf[ISO7816.OFFSET_CLA] & Constants.CLA_MASK_SECURE_MESSAGING) == Constants.CLA_MASK_SECURE_MESSAGING) {
+                short off = lc;
+
+                if((short)(off + 1 + 1 + 1 + 1 + 3) > Constants.INTERNAL_BUFFER_MAX_LENGTH) {
+                    ISOException.throwIt(Constants.SW_MEMORY_FAILURE);
+                    return;
+                }
+
+                transients.buffer[off++] = apdubuf[ISO7816.OFFSET_CLA];
+                transients.buffer[off++] = apdubuf[ISO7816.OFFSET_INS];
+                transients.buffer[off++] = p1;
+                transients.buffer[off++] = p2;
+                if(lc > (short)0xff) {
+                    transients.buffer[off++] = (byte)0;
+                    transients.buffer[off++] = (byte)((lc >> 8) & (byte)0xff);
+                }
+                transients.buffer[off++] = (byte)(lc & (byte)0xff);
+
+                transients.setChainingInputLength((short)0);
+
+                lc = sm.verifyAndDecryptCommand(transients, lc, off);
+
+                transients.setSecureMessagingOk(true);
+
+            } else if(sm.isSessionAvailable()) {
+                clearConnection();
+            }
 
             try {
 
@@ -1579,6 +1669,23 @@ public final class SmartPGPApplet extends Applet {
 
             } catch (ISOException e) {
                 sw = e.getReason();
+            }
+
+            if(transients.secureMessagingOk()) {
+
+                if(available_le > 0) {
+                    short tmp = (short)(Constants.AES_BLOCK_SIZE - (available_le % Constants.AES_BLOCK_SIZE));
+                    available_le = Util.arrayCopyNonAtomic(SecureMessaging.PADDING_BLOCK, (short)0,
+                                                           transients.buffer, available_le,
+                                                           tmp);
+                }
+
+                if((available_le != 0) ||
+                   (sw == (short)0x9000) ||
+                   ((short)(sw & (short)0x6200) == (short)0x6200) ||
+                   ((short)(sw & (short)0x6300) == (short)0x6300)) {
+                    available_le = sm.encryptAndSign(transients, available_le, sw);
+                }
             }
 
             transients.setOutputLength(available_le);
