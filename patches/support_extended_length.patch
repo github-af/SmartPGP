@@ -1,5 +1,5 @@
 diff --git a/src/fr/anssi/smartpgp/Constants.java b/src/fr/anssi/smartpgp/Constants.java
-index b3c0f80..2ee1107 100644
+index 6a66b73..fb9d1d1 100644
 --- a/src/fr/anssi/smartpgp/Constants.java
 +++ b/src/fr/anssi/smartpgp/Constants.java
 @@ -30,7 +30,7 @@ public final class Constants {
@@ -21,7 +21,7 @@ index b3c0f80..2ee1107 100644
          (byte)0x05, /* status indicator byte : operational state */
          (byte)0x90, /* SW1 */
 diff --git a/src/fr/anssi/smartpgp/SmartPGPApplet.java b/src/fr/anssi/smartpgp/SmartPGPApplet.java
-index c47870f..78d446d 100644
+index 6be8d3f..9d865f9 100644
 --- a/src/fr/anssi/smartpgp/SmartPGPApplet.java
 +++ b/src/fr/anssi/smartpgp/SmartPGPApplet.java
 @@ -25,7 +25,7 @@ import javacard.security.*;
@@ -31,9 +31,9 @@ index c47870f..78d446d 100644
 -public final class SmartPGPApplet extends Applet {
 +public final class SmartPGPApplet extends Applet implements ExtendedLength {
  
+     private final ECCurves ec;
      private final Persistent data;
- 
-@@ -104,7 +104,7 @@ public final class SmartPGPApplet extends Applet {
+@@ -108,7 +108,7 @@ public final class SmartPGPApplet extends Applet {
          short blen = apdu.setIncomingAndReceive();
  
          final short lc = apdu.getIncomingLength();
