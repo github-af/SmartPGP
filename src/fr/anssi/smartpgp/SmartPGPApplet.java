@@ -28,12 +28,14 @@ import javacardx.apdu.ExtendedLength;
 public final class SmartPGPApplet extends Applet implements ExtendedLength {
 
     private final Common common;
+    private final ECCurves ec;
     private final Persistent data;
 
     private final Transients transients;
 
     public SmartPGPApplet() {
         common = new Common();
+        ec = new ECCurves();
         data = new Persistent();
         transients = new Transients();
     }
@@ -450,9 +452,9 @@ public final class SmartPGPApplet extends Applet implements ExtendedLength {
             break;
 
         case Constants.TAG_ALGORITHM_INFORMATION:
-            off = Common.writeAlgorithmInformation((byte)0xc1, buf, off); /* SIG */
-            off = Common.writeAlgorithmInformation((byte)0xc2, buf, off); /* DEC */
-            off = Common.writeAlgorithmInformation((byte)0xc3, buf, off); /* AUT */
+            off = Common.writeAlgorithmInformation(ec, (byte)0xc1, false, buf, off); /* SIG */
+            off = Common.writeAlgorithmInformation(ec, (byte)0xc2, true, buf, off); /* DEC */
+            off = Common.writeAlgorithmInformation(ec, (byte)0xc3, false, buf, off); /* AUT */
             break;
 
         default:
@@ -881,7 +883,7 @@ public final class SmartPGPApplet extends Applet implements ExtendedLength {
                 return;
             }
 
-            k.importKey(buf, off, (short)(lc - off));
+            k.importKey(ec, buf, off, (short)(lc - off));
 
         } else {
             final short tag = Util.makeShort(p1, p2);
@@ -1072,7 +1074,7 @@ public final class SmartPGPApplet extends Applet implements ExtendedLength {
 
             case Constants.TAG_ALGORITHM_ATTRIBUTES_SIG:
                 assertAdmin();
-                data.pgp_keys[Persistent.PGP_KEYS_OFFSET_SIG].setAttributes(buf, (short)0, lc);
+                data.pgp_keys[Persistent.PGP_KEYS_OFFSET_SIG].setAttributes(ec, buf, (short)0, lc);
                 JCSystem.beginTransaction();
                 Util.arrayFillNonAtomic(data.digital_signature_counter, (short)0,
                                         (byte)data.digital_signature_counter.length, (byte)0);
@@ -1081,12 +1083,12 @@ public final class SmartPGPApplet extends Applet implements ExtendedLength {
 
             case Constants.TAG_ALGORITHM_ATTRIBUTES_DEC:
                 assertAdmin();
-                data.pgp_keys[Persistent.PGP_KEYS_OFFSET_DEC].setAttributes(buf, (short)0, lc);
+                data.pgp_keys[Persistent.PGP_KEYS_OFFSET_DEC].setAttributes(ec, buf, (short)0, lc);
                 break;
 
             case Constants.TAG_ALGORITHM_ATTRIBUTES_AUT:
                 assertAdmin();
-                data.pgp_keys[Persistent.PGP_KEYS_OFFSET_AUT].setAttributes(buf, (short)0, lc);
+                data.pgp_keys[Persistent.PGP_KEYS_OFFSET_AUT].setAttributes(ec, buf, (short)0, lc);
                 break;
 
             case Constants.TAG_PW_STATUS:
@@ -1256,7 +1258,7 @@ public final class SmartPGPApplet extends Applet implements ExtendedLength {
 
             assertAdmin();
 
-            pkey.generate();
+            pkey.generate(ec);
 
             if(do_reset) {
                 JCSystem.beginTransaction();
@@ -1337,7 +1339,7 @@ public final class SmartPGPApplet extends Applet implements ExtendedLength {
                 return res;
             }
 
-            return data.pgp_keys[Persistent.PGP_KEYS_OFFSET_DEC].decipher(common, transients.buffer, lc);
+            return data.pgp_keys[Persistent.PGP_KEYS_OFFSET_DEC].decipher(common, ec, transients.buffer, lc);
         }
 
         /* PSO : ENCIPHER */
