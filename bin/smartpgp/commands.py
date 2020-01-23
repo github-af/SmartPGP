@@ -23,6 +23,10 @@ from smartcard.System import readers
 from smartcard.util import toHexString
 
 import struct
+import os
+import array
+import hashlib
+
 
 SELECT = [0x00, 0xA4, 0x04, 0x00,
           0x06,
@@ -109,6 +113,27 @@ def encode_len(data):
     else:
         l = [l & 0xff]
     return l
+
+
+def kdf_itersalted_s2k(salt, value, algo, count):
+    if algo == 0x08: #SHA256
+        f = hashlib.new('sha256')
+    elif algo == 0x0A: #SHA512
+        f = hashlib.new('sha512')
+    else:
+        print "invalid KDF"
+    salt = [ord(c) for c in salt]
+    value = [ord(c) for c in value]
+    data = salt + value
+    data = array.array('B', data).tostring()
+    datalen = len(data)
+    while datalen <= count:
+        f.update(data)
+        count -= datalen
+    if 0 < count:
+        f.update(data[0:count])
+    return f.digest()
+
 
 def _raw_send_apdu(connection, text, apdu):
     print "%s" % text
@@ -396,3 +421,22 @@ def get_kdf_do(connection):
     apdu = [0x00, 0xCA, 0x00, 0xF9, 0x00]
     (data,sw1,sw2) = _raw_send_apdu(connection,"Get KDF-DO",apdu)
     return (data,sw1,sw2)
+
+
+def change_reference_data_pw1(connection, old, new):
+    prefix = [0x00, 0x24, 0x00, 0x81]
+    old = ascii_encode_pin(old)
+    new = ascii_encode_pin(new)
+    data = old + new
+    apdu = assemble_with_len(prefix, data)
+    (_,sw1,sw2) = _raw_send_apdu(connection,"Change PW1", apdu)
+    return (sw1,sw2)
+
+def change_reference_data_pw3(connection, old, new):
+    prefix = [0x00, 0x24, 0x00, 0x83]
+    old = ascii_encode_pin(old)
+    new = ascii_encode_pin(new)
+    data = old + new
+    apdu = assemble_with_len(prefix, data)
+    (_,sw1,sw2) = _raw_send_apdu(connection,"Change PW3", apdu)
+    return (sw1,sw2)

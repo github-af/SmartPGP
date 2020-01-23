@@ -50,6 +50,7 @@ VALID_COMMANDS={
         'decrypt-aes': CardConnectionContext.cmd_decrypt_aes,
         'get-kdf': CardConnectionContext.cmd_get_kdf,
         'set-kdf': CardConnectionContext.cmd_set_kdf,
+        'setup-kdf': CardConnectionContext.cmd_setup_kdf,
         }
 
 def read_pin_interactive(name):

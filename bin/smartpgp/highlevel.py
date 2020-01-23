@@ -24,6 +24,11 @@ import pyasn1
 from pyasn1.type import univ
 from pyasn1.codec.der import encoder as der_encoder,decoder as der_decoder
 
+
+
+class InvalidKDF(Exception):
+    pass
+
 class ConnectionFailed(Exception):
     pass
 
@@ -343,3 +348,73 @@ class CardConnectionContext:
         with open(self.output, 'w') as f:
             f.write(kdf_do)
             f.close()
+
+
+    def cmd_setup_kdf(self):
+        self.connect()
+        (kdf_do,_,_) = get_kdf_do(self.connection)
+        if 5 < len(kdf_do):
+            print "KDF already setup"
+            return
+        ####### step 1
+        pw1 = self.read_pin("User")
+        resetting_code = self.read_pin("PUK")
+        if len(resetting_code) == 0:
+            resetting_code = None
+        pw3 = self.read_pin("Admin")
+        ####### step 1bis
+        pw1 = pw1
+        if resetting_code <> None:
+            resetting_code = resetting_code
+        pw3 = pw3
+        ####### step 2
+        salt_size = 8
+        algo = 0x08 #SHA256
+        nbiter = 200000
+        ndata81 = [0x81, 0x01, 0x03] #KDF_ITERSALTED_S2K
+        ndata82 = [0x82, 0x01, algo]
+        ndata83 = [0x83, 0x04, nbiter >> 24, (nbiter >> 16) & 0xff, (nbiter >> 8) & 0xff, nbiter & 0xff] #NB ITERATIONS
+        salt_pw1 = os.urandom(salt_size)
+        ndata84 = assemble_with_len([0x84], [ord(c) for c in salt_pw1]) #SALT PW1
+        salt_resetting_code = os.urandom(salt_size)
+        ndata85 = assemble_with_len([0x85], [ord(c) for c in salt_resetting_code]) #SALT RESETTING CODE
+        salt_pw3 = os.urandom(salt_size)
+        ndata86 = assemble_with_len([0x86], [ord(c) for c in salt_pw3]) #SALT PW3
+        h87 = kdf_itersalted_s2k(salt_pw1, "123456", algo, nbiter) #HASH OF "123456"
+        h87 = [ord(c) for c in h87]
+        ndata87 = assemble_with_len([0x87], h87)
+        h88 = kdf_itersalted_s2k(salt_pw3, "12345678", algo, nbiter) #HASH OF "12345678"
+        h88 = [ord(c) for c in h88]
+        ndata88 = assemble_with_len([0x88], h88)
+        nkdf_do = ndata81 + ndata82 + ndata83 + ndata84 + ndata85 + ndata86 + ndata87 + ndata88
+        ####### step 2bis
+        npw1 = kdf_itersalted_s2k(salt_pw1, pw1, algo, nbiter)
+        if resetting_code <> None:
+            nresetting_code = kdf_itersalted_s2k(salt_resetting_code, resetting_code, algo, nbiter)
+        else:
+            nresetting_code = None
+        npw3 = kdf_itersalted_s2k(salt_pw3, pw3, algo, nbiter)
+        ####### step 3
+        (_,sw1,sw2) = verif_admin_pin(self.connection, pw3)
+        if sw1==0x90 and sw2==0x00:
+            self.verified = True
+        else:
+            raise AdminPINFailed
+        ####### step 3bis
+        if nresetting_code <> None:
+            set_resetting_code(self.connection, nresetting_code)
+            if sw1!=0x90 or sw2!=0x00:
+                print "set_resetting_code failed"
+                return
+        ####### step 4
+        change_reference_data_pw1(self.connection, pw1, npw1)
+        if sw1!=0x90 or sw2!=0x00:
+            print "change_reference_data_pw1 failed"
+            return
+        ####### step 4bis
+        change_reference_data_pw3(self.connection, pw3, npw3)
+        if sw1!=0x90 or sw2!=0x00:
+            print "change_reference_data_pw3 failed"
+            return
+        ####### step 5
+        put_kdf_do(self.connection, nkdf_do)
