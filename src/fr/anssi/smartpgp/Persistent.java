@@ -260,4 +260,25 @@ public final class Persistent {
 
         isTerminated = false;
     }
+
+    protected final boolean keyDerivationIsActive() {
+        return ((3 <= key_derivation_function_length) &&
+                (key_derivation_function[0] == (byte)0x81) &&
+                (key_derivation_function[2] != (byte)0));
+    }
+
+    protected final byte keyDerivationSize() {
+        if(keyDerivationIsActive() &&
+           (6 <= key_derivation_function_length)) {
+            switch(key_derivation_function[5]) {
+            case (byte)0x08:
+                return (byte)32;
+            case (byte)0x0A:
+                return (byte)64;
+            default:
+                return (byte)0;
+            }
+        }
+        return (byte)0;
+    }
 }
