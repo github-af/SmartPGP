@@ -67,9 +67,10 @@ public final class Constants {
     protected static final byte LANG_MAX_LENGTH = 8;
     protected static final byte[] LANG_DEFAULT = { (byte)0x65, (byte)0x6e };
 
+    protected static final byte SEX_NOT_KNOWN = (byte)0x30;
     protected static final byte SEX_MALE = (byte)0x31;
     protected static final byte SEX_FEMALE = (byte)0x32;
-    protected static final byte SEX_NOT_ANNOUNCED = (byte)0x39;
+    protected static final byte SEX_NOT_APPLICABLE = (byte)0x39;
 
     protected static final short TAG_AID = (short)0x004f;
     protected static final short TAG_LOGIN = (short)0x005e;

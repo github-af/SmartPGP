@@ -946,9 +946,10 @@ public final class SmartPGPApplet extends Applet {
                 }
 
                 switch(buf[0]) {
+                case Constants.SEX_NOT_KNOWN:
                 case Constants.SEX_MALE:
                 case Constants.SEX_FEMALE:
-                case Constants.SEX_NOT_ANNOUNCED:
+                case Constants.SEX_NOT_APPLICABLE:
                     data.sex = buf[0];
                     break;
 
