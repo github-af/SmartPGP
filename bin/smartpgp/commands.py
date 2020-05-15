@@ -40,6 +40,7 @@ ACTIVATE = [0x00, 0x44, 0x00, 0x00]
 ACTIVATE_FULL = [0x00, 0x44, 0x00, 0x01]
 GET_SM_CURVE_OID = [0x00, 0xca, 0x00, 0xd4]
 GENERATE_ASYMETRIC_KEYPAIR = [0x00, 0x47, 0x80, 0x00]
+GET_ASYMETRIC_KEYPAIR = [0x00, 0x47, 0x81, 0x00]
 
 ALGS_ALIASES = {
     'ansix9p256r1': 'ansix9p256r1',
@@ -231,6 +232,11 @@ def generate_sm_key(connection):
     apdu = assemble_with_len(GENERATE_ASYMETRIC_KEYPAIR, [0xA6, 0x00])
     apdu = apdu + [0x00]
     return _raw_send_apdu(connection,"Generate SM key",apdu)
+
+def get_sm_key(connection):
+    apdu = assemble_with_len(GET_ASYMETRIC_KEYPAIR, [0xA6, 0x00])
+    apdu = apdu + [0x00]
+    return _raw_send_apdu(connection,"Get SM key",apdu)
 
 def set_resetting_code(connection, resetting_code): 
     apdu = assemble_with_len([0x00, 0xDA, 0x00, 0xD3], ascii_encode_pin(resetting_code))

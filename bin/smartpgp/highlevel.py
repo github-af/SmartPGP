@@ -189,6 +189,48 @@ class CardConnectionContext:
             f.write(pubkey_der)
             f.close()
 
+    def cmd_get_sm_key(self):
+        if not self.output:
+            print "Missing output file name"
+            return
+        self.connect()
+        (data,sw1,sw2) = get_sm_key(self.connection)
+        if sw1!=0x90 or sw2!=0x00:
+            print "get_sm_key failed"
+            return
+        if len(data) < 4 or data[0]!=0x7f or data[1]!=0x49:
+            print "Strange reply for get_sm_key"
+            return
+        blob_len = data[2]
+        blob = data[3:]
+        assert(blob_len == len(blob))
+        if blob[0]!=0x86:
+            print "get_sm_key something not a public key"
+            return
+        assert(blob[1]==len(blob[2:]))
+        pubkey = blob[2:]
+        # get curve OID
+        curve_oid_der = get_sm_curve_oid(self.connection)
+        if not curve_oid_der:
+            print "Error getting SM curve OID"
+            return
+        (curve_oid,_) = der_decoder.decode(str(curve_oid_der))
+        # now format it to DER [RFC5480]
+        s = univ.Sequence()
+        oid_elliptic_curve_pubkey = univ.ObjectIdentifier('1.2.840.10045.2.1')
+        s.setComponentByPosition(0,oid_elliptic_curve_pubkey)
+        s.setComponentByPosition(1,curve_oid)
+        bs = univ.BitString("'%s'H" % binascii.hexlify(bytearray(pubkey)))
+        s2 = univ.Sequence()
+        s2.setComponentByPosition(0,s)
+        s2.setComponentByPosition(1,bs)
+        pubkey_der = der_encoder.encode(s2)
+        print binascii.hexlify(pubkey_der)
+        # and write result
+        with open(self.output,"wb") as f:
+            f.write(pubkey_der)
+            f.close()
+
     def cmd_put_sm_key(self):
         if self.input is None:
             print "No input key file"
