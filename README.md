@@ -6,7 +6,7 @@ SmartPGP is a free and open source implementation of the [OpenPGP card
 The main improvement introduced in OpenPGP card 3.x specification from
 previous version is the support of elliptic curve cryptography with
 several existing curves (NIST P-256, NIST P-384, NIST P-521, brainpool
-p256r1, brainpool p384r1 and brainpool p512r1).
+p256r1, brainpool p384r1, brainpool p512r1 and curve25519).
 
 
 ## Features
@@ -16,8 +16,9 @@ of them depend on underlying hardware support and available
 (non-)volatile memory resources:
 
 - RSA (>= 2048 bits modulus, 17 bits exponent) and ECC (NIST P-256,
-  NIST P-384, NIST P-521, brainpool p256r1, brainpool p384r1 and
-  brainpool p512r1) for signature, encryption and authentication;
+  NIST P-384, NIST P-521, brainpool p256r1, brainpool p384r1,
+  brainpool p512r1 and curve25519) for signature, encryption and 
+  authentication;
 
 - On-board key generation and external private key import;
 
@@ -131,10 +132,10 @@ The repository contains several directories:
 
 
 ## Prerequisites
-- JavaCard Development Kit 3.0.4 (or above) from
+- JavaCard Development Kit 3.1 (or above) from
   [Oracle website](http://www.oracle.com/technetwork/java/embedded/javacard/downloads/index.html);
 
-- A device compliant with JavaCard 3.0.4 (or above) with enough
+- A device compliant with JavaCard 3.1 (or above) with enough
   available resources to hold the code (approximately 23 kB of
   non-volatile memory), persistent data (approximately 10 kB of
   non-volatile memory) and volatile data (approximately 2 kB of RAM).
