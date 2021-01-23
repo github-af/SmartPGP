@@ -21,9 +21,6 @@
 package fr.anssi.smartpgp;
 
 import javacard.framework.*;
-import javacard.security.*;
-import javacardx.apdu.*;
-import javacardx.crypto.*;
 
 public final class Fingerprint {
     protected final byte[] data;
