@@ -20,11 +20,6 @@
 
 package fr.anssi.smartpgp;
 
-import javacard.framework.*;
-import javacard.security.*;
-import javacardx.apdu.*;
-import javacardx.crypto.*;
-
 public final class ECCurves {
 
     protected final ECParams[] curves;
