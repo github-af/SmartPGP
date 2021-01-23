@@ -114,7 +114,7 @@ public final class CmacSignature {
             return;
         }
 
-        short bl = (short)blockLen();
+        short bl = blockLen();
 
         short remLen = (short)(Constants.AES_BLOCK_SIZE - bl);
 
