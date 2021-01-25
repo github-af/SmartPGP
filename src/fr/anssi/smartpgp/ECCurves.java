@@ -30,6 +30,17 @@ public final class ECCurves {
     protected final ECParams[] curves;
 
     protected ECCurves() {
+
+        final ECParams secp256k1 =
+            new ECParams((short)256,
+                         ECConstants.secp256k1_oid,
+                         ECConstants.secp256k1_field,
+                         ECConstants.secp256k1_a,
+                         ECConstants.secp256k1_b,
+                         ECConstants.secp256k1_g,
+                         ECConstants.secp256k1_r,
+                         (short)1);
+
         final ECParams ansix9p256r1 =
             new ECParams((short)256,
                          ECConstants.ansix9p256r1_oid,
@@ -91,6 +102,7 @@ public final class ECCurves {
                          (short)1);
 
         curves = new ECParams[]{
+            secp256k1,
             ansix9p256r1,
             ansix9p384r1,
             ansix9p521r1,
