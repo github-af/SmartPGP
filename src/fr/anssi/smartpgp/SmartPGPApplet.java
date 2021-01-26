@@ -560,67 +560,65 @@ public final class SmartPGPApplet extends Applet {
                 ISOException.throwIt(Util.makeShort((byte)0x63, (byte)(0xC0 | remaining)));
                 return;
 
-            } else {
-
-                switch(p2) {
-                case (byte)0x81:
-                case (byte)0x82:
-                    if(data.keyDerivationIsActive()) {
-                        if(lc != data.keyDerivationSize()) {
-                            ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
-                            return;
-                        }
-                    } else {
-                        if((lc < Constants.USER_PIN_MIN_SIZE) ||
-                           (lc > Constants.USER_PIN_MAX_SIZE)) {
-                            ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
-                            return;
-                        }
-                    }
-
-                    if(p2 == (byte)0x81) {
-                        transients.setUserPinMode81(false);
-                    } else {
-                        transients.setUserPinMode82(false);
-                    }
-
-                    if(!data.user_pin.check(transients.buffer, (short)0, (byte)lc)) {
-                        ISOException.throwIt(ISO7816.SW_SECURITY_STATUS_NOT_SATISFIED);
-                        return;
-                    }
-
-                    if(p2 == (byte)0x81) {
-                        transients.setUserPinMode81(true);
-                    } else {
-                        transients.setUserPinMode82(true);
-                    }
-                    return;
-
-                case (byte)0x83:
-                    if(data.keyDerivationIsActive()) {
-                        if(lc != data.keyDerivationSize()) {
-                            ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
-                            return;
-                        }
-                    } else {
-                        if((lc < Constants.ADMIN_PIN_MIN_SIZE) ||
-                           (lc > Constants.ADMIN_PIN_MAX_SIZE)) {
-                            ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
-                            return;
-                        }
-                    }
-
-                    if(!data.admin_pin.check(transients.buffer, (short)0, (byte)lc)) {
-                        ISOException.throwIt(ISO7816.SW_SECURITY_STATUS_NOT_SATISFIED);
-                        return;
-                    }
-                    return;
-
-                default:
-                    ISOException.throwIt(ISO7816.SW_WRONG_P1P2);
-                    return;
-                }
             }
+			switch(p2) {
+			case (byte)0x81:
+			case (byte)0x82:
+			    if(data.keyDerivationIsActive()) {
+			        if(lc != data.keyDerivationSize()) {
+			            ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
+			            return;
+			        }
+			    } else {
+			        if((lc < Constants.USER_PIN_MIN_SIZE) ||
+			           (lc > Constants.USER_PIN_MAX_SIZE)) {
+			            ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
+			            return;
+			        }
+			    }
+
+			    if(p2 == (byte)0x81) {
+			        transients.setUserPinMode81(false);
+			    } else {
+			        transients.setUserPinMode82(false);
+			    }
+
+			    if(!data.user_pin.check(transients.buffer, (short)0, (byte)lc)) {
+			        ISOException.throwIt(ISO7816.SW_SECURITY_STATUS_NOT_SATISFIED);
+			        return;
+			    }
+
+			    if(p2 == (byte)0x81) {
+			        transients.setUserPinMode81(true);
+			    } else {
+			        transients.setUserPinMode82(true);
+			    }
+			    return;
+
+			case (byte)0x83:
+			    if(data.keyDerivationIsActive()) {
+			        if(lc != data.keyDerivationSize()) {
+			            ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
+			            return;
+			        }
+			    } else {
+			        if((lc < Constants.ADMIN_PIN_MIN_SIZE) ||
+			           (lc > Constants.ADMIN_PIN_MAX_SIZE)) {
+			            ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
+			            return;
+			        }
+			    }
+
+			    if(!data.admin_pin.check(transients.buffer, (short)0, (byte)lc)) {
+			        ISOException.throwIt(ISO7816.SW_SECURITY_STATUS_NOT_SATISFIED);
+			        return;
+			    }
+			    return;
+
+			default:
+			    ISOException.throwIt(ISO7816.SW_WRONG_P1P2);
+			    return;
+			}
 
         } else if(p1 == (byte)0xff) {
 
