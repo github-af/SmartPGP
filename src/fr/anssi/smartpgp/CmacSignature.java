@@ -79,13 +79,13 @@ public final class CmacSignature {
         Util.arrayFillNonAtomic(bytes, (short)0, (short)bytes.length, (byte)0);
     }
 
-    protected final void init(final CmacKey key) {
-        if((key == null) || !key.isInitialized()) {
+    protected final void init(final CmacKey keyInit) {
+        if((keyInit == null) || !keyInit.isInitialized()) {
             CryptoException.throwIt(CryptoException.UNINITIALIZED_KEY);
             return;
         }
 
-        this.key = key;
+        this.key = keyInit;
 
         cipher.init(key.key, Cipher.MODE_ENCRYPT);
 
