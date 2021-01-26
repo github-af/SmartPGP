@@ -1426,6 +1426,9 @@ public final class SmartPGPApplet extends Applet {
 
             case (byte)0x01:
                 return sm.establish(transients, ec, transients.buffer, lc);
+
+            default:
+                break;
             }
         }
 
