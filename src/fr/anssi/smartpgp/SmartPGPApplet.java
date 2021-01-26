@@ -1374,6 +1374,9 @@ public final class SmartPGPApplet extends Applet {
                 sensitiveData();
                 assertUserMode82();
                 return data.pgp_keys[Persistent.PGP_KEYS_OFFSET_AUT].sign(transients.buffer, lc, true);
+
+            default:
+                break;
             }
         }
 
