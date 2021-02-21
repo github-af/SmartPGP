@@ -27,8 +27,8 @@ public final class TestApplet extends Applet {
     }
 
     private final void processTestRandom(final byte p1, final byte p2) {
-        final RandomData rand = RandomData.getInstance(RandomData.ALG_SECURE_RANDOM);
-        rand.generateData(buffer_red, (short)0, (short)buffer_red.length);
+        final RandomData rand = RandomData.getInstance(RandomData.ALG_TRNG);
+        rand.nextBytes(buffer_red, (short)0, (short)buffer_red.length);
     }
 
     private final void processTestRsa(final boolean crt, final byte p1, final byte p2) {
@@ -166,11 +166,12 @@ public final class TestApplet extends Applet {
 
     private final void processTestEc(final byte p1, final byte p2) {
         boolean generate, provide_w;
-        short size;
-        ECPrivateKey priv;
-        ECPublicKey pub;
-        byte[] field, a, b, g, r, s, w;
-        short k;
+        XECPrivateKey priv;
+        XECPublicKey pub;
+        NamedParameterSpec spec;
+        byte[] s;
+        byte[] w;
+        Signature sig;
 
         switch(p1 & (byte)0x01) {
         case (byte)0x00:
@@ -202,81 +203,55 @@ public final class TestApplet extends Applet {
 
         switch(p2) {
         case (byte)0x00:
-            size = 256;
-            field = ECConstants.ansix9p256r1_field;
-            a = ECConstants.ansix9p256r1_a;
-            b = ECConstants.ansix9p256r1_b;
-            g = ECConstants.ansix9p256r1_g;
-            r = ECConstants.ansix9p256r1_r;
-            k = (short)1;
+            spec = NamedParameterSpec.getInstance(NamedParameterSpec.SECP256R1);
             s = Data.EC_ANSIX9P256R1_S;
             w = Data.EC_ANSIX9P256R1_W;
+            sig = Signature.getInstance(Signature.ALG_ECDSA_SHA_512, false);
             break;
 
         case (byte)0x01:
-            size = 521;
-            field = ECConstants.ansix9p521r1_field;
-            a = ECConstants.ansix9p521r1_a;
-            b = ECConstants.ansix9p521r1_b;
-            g = ECConstants.ansix9p521r1_g;
-            r = ECConstants.ansix9p521r1_r;
-            k = (short)1;
+        case (byte)0x11:
+            spec = NamedParameterSpec.getInstance(NamedParameterSpec.SECP521R1);
             s = Data.EC_ANSIX9P521R1_S;
             w = Data.EC_ANSIX9P521R1_W;
+            sig = Signature.getInstance(Signature.ALG_ECDSA_SHA_512, false);
             break;
 
-        case (byte)0x11:
-            size = 528;
-            field = ECConstants.ansix9p521r1_field;
-            a = ECConstants.ansix9p521r1_a;
-            b = ECConstants.ansix9p521r1_b;
-            g = ECConstants.ansix9p521r1_g;
-            r = ECConstants.ansix9p521r1_r;
-            k = (short)1;
-            s = Data.EC_ANSIX9P521R1_S;
-            w = Data.EC_ANSIX9P521R1_W;
+            /*
+        case (byte)0x02:
+            spec = NamedParameterSpec.getInstance(NamedParameterSpec.ED25519);
+            s = Data.EC_ED25519_S;
+            w = Data.EC_ED25519_W;
+            sig = Signature.getInstance(Signature.SIG_CIPHER_EDDSAPH, false);
             break;
+            */
 
         default:
             ISOException.throwIt(ISO7816.SW_WRONG_P1P2);
             return;
         }
 
-        pub = (ECPublicKey)KeyBuilder.buildKey(KeyBuilder.TYPE_EC_FP_PUBLIC, size, false);
+        pub = (XECPublicKey)KeyBuilder.buildXECKey(spec, (short)(JCSystem.MEMORY_TYPE_TRANSIENT_DESELECT | KeyBuilder.ATTR_PUBLIC), true);
 
         if(pub == null) {
             ISOException.throwIt(Data.SW_FAILED_TO_BUILD_PUB_KEY);
             return;
         }
 
-        pub.setFieldFP(field, (short)0, (short)field.length);
-        pub.setA(a, (short)0, (short)a.length);
-        pub.setB(b, (short)0, (short)b.length);
-        pub.setG(g, (short)0, (short)g.length);
-        pub.setR(r, (short)0, (short)r.length);
-        pub.setK(k);
-
-        priv = (ECPrivateKey)KeyBuilder.buildKey(KeyBuilder.TYPE_EC_FP_PRIVATE, size, false);
+        priv = (XECPrivateKey)KeyBuilder.buildXECKey(spec, (short)(JCSystem.MEMORY_TYPE_TRANSIENT_DESELECT | KeyBuilder.ATTR_PRIVATE), true);
 
         if(priv == null) {
             ISOException.throwIt(Data.SW_FAILED_TO_BUILD_PRIV_KEY);
             return;
         }
 
-        priv.setFieldFP(field, (short)0, (short)field.length);
-        priv.setA(a, (short)0, (short)a.length);
-        priv.setB(b, (short)0, (short)b.length);
-        priv.setG(g, (short)0, (short)g.length);
-        priv.setR(r, (short)0, (short)r.length);
-        priv.setK(k);
-
         if(generate) {
             final KeyPair kp = new KeyPair(pub, priv);
             kp.genKeyPair();
         } else {
-            priv.setS(s, (short)0, (short)s.length);
+            priv.setEncoded(s, (short)0, (short)s.length);
             if(provide_w) {
-                pub.setW(w, (short)0, (short)w.length);
+                pub.setEncoded(w, (short)0, (short)w.length);
             }
         }
 
@@ -290,7 +265,7 @@ public final class TestApplet extends Applet {
             return;
         }
 
-        final Signature sig = Signature.getInstance(Signature.ALG_ECDSA_SHA_512, false);
+
         sig.init(priv, Signature.MODE_SIGN);
 
         sig.signPreComputedHash(buffer_red, (short)0, MessageDigest.LENGTH_SHA_512,

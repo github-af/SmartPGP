@@ -1465,7 +1465,7 @@ public final class SmartPGPApplet extends Applet implements ExtendedLength {
         }
 
         if(le != 0) {
-            common.random.generateData(transients.buffer, (short)0, le);
+            common.random.nextBytes(transients.buffer, (short)0, le);
         }
 
         return le;
