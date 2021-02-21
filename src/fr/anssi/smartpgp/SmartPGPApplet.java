@@ -26,16 +26,13 @@ import javacardx.crypto.*;
 
 public final class SmartPGPApplet extends Applet {
 
+    private final Common common;
     private final Persistent data;
 
     private final Transients transients;
 
-    private final Cipher cipher_aes_cbc_nopad;
-    private final RandomData random_data;
-
     public SmartPGPApplet() {
-        cipher_aes_cbc_nopad = Cipher.getInstance(Cipher.ALG_AES_BLOCK_128_CBC_NOPAD, false);
-        random_data = RandomData.getInstance(RandomData.ALG_SECURE_RANDOM);
+        common = new Common();
         data = new Persistent();
         transients = new Transients();
     }
@@ -1287,7 +1284,7 @@ public final class SmartPGPApplet extends Applet {
             }
             JCSystem.commitTransaction();
 
-            return data.pgp_keys[Persistent.PGP_KEYS_OFFSET_SIG].sign(transients.buffer, lc, false);
+            return data.pgp_keys[Persistent.PGP_KEYS_OFFSET_SIG].sign(common, transients.buffer, lc, false);
         }
 
         /* PSO : DECIPHER */
@@ -1312,10 +1309,10 @@ public final class SmartPGPApplet extends Applet {
                     return 0;
                 }
 
-                cipher_aes_cbc_nopad.init(data.aes_key, Cipher.MODE_DECRYPT);
+                common.cipher_aes_cbc_nopad.init(data.aes_key, Cipher.MODE_DECRYPT);
 
-                final short res = cipher_aes_cbc_nopad.doFinal(transients.buffer, (short)1, (short)(lc - 1),
-                                                               transients.buffer, lc);
+                final short res = common.cipher_aes_cbc_nopad.doFinal(transients.buffer, (short)1, (short)(lc - 1),
+                                                                      transients.buffer, lc);
 
                 Util.arrayCopyNonAtomic(transients.buffer, lc,
                                         transients.buffer, (short)0, res);
@@ -1325,7 +1322,7 @@ public final class SmartPGPApplet extends Applet {
                 return res;
             }
 
-            return data.pgp_keys[Persistent.PGP_KEYS_OFFSET_DEC].decipher(transients.buffer, lc);
+            return data.pgp_keys[Persistent.PGP_KEYS_OFFSET_DEC].decipher(common, transients.buffer, lc);
         }
 
         /* PSO : ENCIPHER */
@@ -1343,10 +1340,10 @@ public final class SmartPGPApplet extends Applet {
                 return 0;
             }
 
-            cipher_aes_cbc_nopad.init(data.aes_key, Cipher.MODE_ENCRYPT);
+            common.cipher_aes_cbc_nopad.init(data.aes_key, Cipher.MODE_ENCRYPT);
 
-            final short res = cipher_aes_cbc_nopad.doFinal(transients.buffer, (short)0, lc,
-                                                           transients.buffer, (short)(lc + 1));
+            final short res = common.cipher_aes_cbc_nopad.doFinal(transients.buffer, (short)0, lc,
+                                                                  transients.buffer, (short)(lc + 1));
 
             transients.buffer[lc] = (byte)0x02;
             Util.arrayCopyNonAtomic(transients.buffer, lc,
@@ -1369,7 +1366,7 @@ public final class SmartPGPApplet extends Applet {
             case (byte)0x00:
                 sensitiveData();
                 assertUserMode82();
-                return data.pgp_keys[Persistent.PGP_KEYS_OFFSET_AUT].sign(transients.buffer, lc, true);
+                return data.pgp_keys[Persistent.PGP_KEYS_OFFSET_AUT].sign(common, transients.buffer, lc, true);
 
             default:
                 break;
@@ -1397,7 +1394,7 @@ public final class SmartPGPApplet extends Applet {
         }
 
         if(le != 0) {
-            random_data.generateData(transients.buffer, (short)0, le);
+            common.random.generateData(transients.buffer, (short)0, le);
         }
 
         return le;

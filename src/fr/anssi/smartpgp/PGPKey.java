@@ -40,12 +40,7 @@ public final class PGPKey {
 
     private KeyPair keys;
 
-    private final Cipher cipher_rsa_pkcs1;
-
     protected PGPKey() {
-
-        cipher_rsa_pkcs1 = Cipher.getInstance(Cipher.ALG_RSA_PKCS1, false);
-
         fingerprint = new Fingerprint();
         generation_date = new byte[Constants.GENERATION_DATE_SIZE];
 
@@ -447,7 +442,8 @@ public final class PGPKey {
 
 
 
-    protected final short sign(final byte[] buf, final short lc,
+    protected final short sign(final Common common,
+                               final byte[] buf, final short lc,
                                final boolean forAuth) {
 
         if(!isInitialized()) {
@@ -486,10 +482,10 @@ public final class PGPKey {
                 return 0;
             }
 
-            cipher_rsa_pkcs1.init(priv, Cipher.MODE_ENCRYPT);
+            common.cipher_rsa_pkcs1.init(priv, Cipher.MODE_ENCRYPT);
 
-            off = cipher_rsa_pkcs1.doFinal(buf, (short)0, lc,
-                                           buf, lc);
+            off = common.cipher_rsa_pkcs1.doFinal(buf, (short)0, lc,
+                                                  buf, lc);
 
             return Util.arrayCopyNonAtomic(buf, lc,
                                            buf, (short)0,
@@ -502,7 +498,8 @@ public final class PGPKey {
     }
 
 
-    protected final short decipher(final byte[] buf, final short lc) {
+    protected final short decipher(final Common common,
+                                   final byte[] buf, final short lc) {
 
         if(!isInitialized()) {
             ISOException.throwIt(Constants.SW_REFERENCE_DATA_NOT_FOUND);
@@ -526,10 +523,10 @@ public final class PGPKey {
                 return 0;
             }
 
-            cipher_rsa_pkcs1.init(priv, Cipher.MODE_DECRYPT);
+            common.cipher_rsa_pkcs1.init(priv, Cipher.MODE_DECRYPT);
 
-            final short len = cipher_rsa_pkcs1.doFinal(buf, (short)1, (short)(lc - 1),
-                                                       buf, lc);
+            final short len = common.cipher_rsa_pkcs1.doFinal(buf, (short)1, (short)(lc - 1),
+                                                              buf, lc);
 
             off = Util.arrayCopyNonAtomic(buf, lc,
                                           buf, (short)0,

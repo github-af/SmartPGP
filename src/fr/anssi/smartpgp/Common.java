@@ -21,8 +21,21 @@
 package fr.anssi.smartpgp;
 
 import javacard.framework.*;
+import javacard.security.*;
+import javacardx.crypto.*;
 
 public final class Common {
+    protected final Cipher cipher_aes_cbc_nopad;
+    protected final Cipher cipher_rsa_pkcs1;
+
+    protected final RandomData random;
+
+    protected Common() {
+        cipher_aes_cbc_nopad = Cipher.getInstance(Cipher.ALG_AES_BLOCK_128_CBC_NOPAD, false);
+        cipher_rsa_pkcs1 = Cipher.getInstance(Cipher.ALG_RSA_PKCS1, false);
+
+        random = RandomData.getInstance(RandomData.ALG_SECURE_RANDOM);
+    }
 
     protected static final void beginTransaction(final boolean isRegistering) {
         if(!isRegistering) {
