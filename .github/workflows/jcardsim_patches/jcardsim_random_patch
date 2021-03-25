@@ -1,0 +1,20 @@
+diff --git a/src/main/java/com/licel/jcardsim/crypto/SecureRandomNullProvider.java b/src/main/java/com/licel/jcardsim/crypto/SecureRandomNullProvider.java
+index f4cca44..70d41a3 100644
+--- a/src/main/java/com/licel/jcardsim/crypto/SecureRandomNullProvider.java
++++ b/src/main/java/com/licel/jcardsim/crypto/SecureRandomNullProvider.java
+@@ -32,7 +32,14 @@ class SecureRandomNullProvider extends SecureRandom {
+             }
+             @Override
+             protected void engineNextBytes(byte[] arg) {
+-                engine.nextBytes(arg);
++                final String doSecureRandom = System.getProperty("com.licel.jcardsim.randomdata.secure", "0");
++                if ("1".equals(doSecureRandom)){
++                    SecureRandom randomGenerator = new SecureRandom();
++                    randomGenerator.nextBytes(arg);
++                }
++		else{
++                    engine.nextBytes(arg);
++		}
+             }
+             @Override
+             protected byte[] engineGenerateSeed(int len) {
