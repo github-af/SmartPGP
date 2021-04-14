@@ -112,6 +112,7 @@ public final class Constants {
     protected static final byte CRT_TAG_DECRYPTION_KEY = (byte)0xb8;
 
     protected static final byte CLA_MASK_CHAINING = (byte)0x10;
+    protected static final byte CLA_MASK_CHANNEL = (byte)0xFC;
 
 
     protected static final byte INS_SELECT_DATA = (byte)0xA5;
