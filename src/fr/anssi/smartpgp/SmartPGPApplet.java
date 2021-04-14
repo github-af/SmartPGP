@@ -1524,7 +1524,7 @@ public final class SmartPGPApplet extends Applet {
         transients.setSecureMessagingOk(false);
 
         if(data.isTerminated) {
-            if(apdubuf[ISO7816.OFFSET_CLA] != 0) {
+            if((apdubuf[ISO7816.OFFSET_CLA] & Constants.CLA_MASK_CHANNEL) != 0) {
                 ISOException.throwIt(ISO7816.SW_CLA_NOT_SUPPORTED);
                 return;
             }

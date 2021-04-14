@@ -116,6 +116,7 @@ public final class Constants {
 
     protected static final byte CLA_MASK_CHAINING = (byte)0x10;
     protected static final byte CLA_MASK_SECURE_MESSAGING = (byte)0x04;
+    protected static final byte CLA_MASK_CHANNEL = (byte)0xFC;
 
 
     protected static final byte INS_SELECT_DATA = (byte)0xA5;
