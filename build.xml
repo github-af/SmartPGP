@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <project name="smartpgp" default="convert" basedir=".">
   <description>Ant build for SmartPGP applet</description>
-  <get src="https://github.com/martinpaljak/ant-javacard/releases/download/19.05.06/ant-javacard.jar" dest="." skipexisting="true"/>
+  <get src="https://github.com/martinpaljak/ant-javacard/releases/download/v20.03.25/ant-javacard.jar" dest="." skipexisting="true"/>
   <taskdef name="javacard" classname="pro.javacard.ant.JavaCard" classpath="ant-javacard.jar"/>
   <target name="convert">
     <javacard>
