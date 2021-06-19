@@ -92,6 +92,9 @@ The repository contains several directories:
   non-volatile memory), persistent data (approximately 10 kB of
   non-volatile memory) and volatile data (approximately 2 kB of RAM).
 
+- The [pyscard](https://pypi.org/project/pyscard/) and [pyasn1](https://pypi.org/project/pyasn1/)
+  Python libraries for `smartcard-cli`.
+
 
 ## Importing RSA keys above 2048 bits (3072 or 4096 bits)
 
