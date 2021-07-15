@@ -146,6 +146,12 @@ class CardConnectionContext:
     def cmd_switch_rsa2048(self):
         self.cmd_switch_all_crypto('rsa2048')
 
+    def cmd_switch_rsa3072(self):
+        self.cmd_switch_all_crypto('rsa3072')
+
+    def cmd_switch_rsa4096(self):
+        self.cmd_switch_all_crypto('rsa4096')
+
     def cmd_generate_sm_key(self):
         if not self.output:
             print "Missing output file name"

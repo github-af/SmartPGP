@@ -180,7 +180,7 @@ def reset_card(connection):
     _raw_send_apdu(connection,"Terminate",TERMINATE)
     _raw_send_apdu(connection,"Activate",ACTIVATE)
 
-def switch_crypto_rsa(connection,key_role):
+def switch_crypto_rsa_2048(connection,key_role):
     data = [
         0x01,       # RSA
         0x08, 0x00, # 2048 bits modulus
@@ -200,12 +200,56 @@ def switch_crypto_rsa(connection,key_role):
     apdu = assemble_with_len(prefix, data)
     _raw_send_apdu(connection,"Switch to RSA2048 (%s)" % (key_role,),apdu)
 
+def switch_crypto_rsa_3072(connection,key_role):
+    data = [
+        0x01,       # RSA
+        0x0C, 0x00, # 3072 bits modulus
+        0x00, 0x11, # 65537 - 17 bits public exponent
+        0x03]       # crt form with modulus
+    if key_role == 'sig':
+        role = 0xc1
+    elif key_role == 'dec':
+        role = 0xc2
+    elif key_role == 'auth':
+        role = 0xc3
+    elif key_role == 'sm':
+        role = 0xd4
+    else:
+        raise WrongKeyRole
+    prefix = [0x00, 0xDA, 0x00] + [role]
+    apdu = assemble_with_len(prefix, data)
+    _raw_send_apdu(connection,"Switch to RSA3072 (%s)" % (key_role,),apdu)
+
+def switch_crypto_rsa_4096(connection,key_role):
+    data = [
+        0x01,       # RSA
+        0x10, 0x00, # 4096 bits modulus
+        0x00, 0x11, # 65537 - 17 bits public exponent
+        0x03]       # crt form with modulus
+    if key_role == 'sig':
+        role = 0xc1
+    elif key_role == 'dec':
+        role = 0xc2
+    elif key_role == 'auth':
+        role = 0xc3
+    elif key_role == 'sm':
+        role = 0xd4
+    else:
+        raise WrongKeyRole
+    prefix = [0x00, 0xDA, 0x00] + [role]
+    apdu = assemble_with_len(prefix, data)
+    _raw_send_apdu(connection,"Switch to RSA4096 (%s)" % (key_role,),apdu)
+
 def switch_crypto(connection,crypto,key_role):
     alg_name = None
     role = None
     # treat RSA differently
     if crypto=='rsa2048' or crypto=='RSA2048' or crypto=='rsa' or crypto=='RSA':
-        return switch_crypto_rsa(connection,key_role)
+        return switch_crypto_rsa_2048(connection,key_role)
+    if crypto=='rsa3072' or crypto=='RSA3072' or crypto=='rsa' or crypto=='RSA':
+        return switch_crypto_rsa_3072(connection,key_role)
+    if crypto=='rsa4096' or crypto=='RSA4096' or crypto=='rsa' or crypto=='RSA':
+        return switch_crypto_rsa_4096(connection,key_role)
     # this code is only for elliptic curves
     try:
         alg_name = ALGS_ALIASES[crypto]
