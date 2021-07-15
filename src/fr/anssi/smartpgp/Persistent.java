@@ -177,7 +177,7 @@ public final class Persistent {
         lang_length = (byte)Constants.LANG_DEFAULT.length;
         Common.commitTransaction(isRegistering);
 
-        sex = Constants.SEX_NOT_KNOWN;
+        sex = Constants.SEX_NOT_APPLICABLE;
 
         Util.arrayFillNonAtomic(digital_signature_counter, (short)0,
                                 (short)digital_signature_counter.length, (byte)0);
