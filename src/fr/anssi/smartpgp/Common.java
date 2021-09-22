@@ -160,7 +160,7 @@ public final class Common {
     protected static final short writeAlgorithmInformation(final byte key_tag,
                                                            final byte[] buf, short off) {
         for(short m = 2; m <= 4; ++m) {
-            for(byte form = 1; form <= 3; form += 2) {
+            for(byte form = Constants.RSA_IMPORT_SUPPORTS_FORMAT_1 ? 1 : 3; form <= 3; form += 2) {
                 buf[off++] = key_tag;
                 buf[off++] = (byte)6; /* len */
                 buf[off++] = (byte)0x01; /* RSA */

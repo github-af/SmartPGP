@@ -224,4 +224,6 @@ public final class Constants {
 
     protected static final short AES_BLOCK_SIZE = (short)16;
 
+    protected static final boolean RSA_IMPORT_SUPPORTS_FORMAT_1 = false;
+
 }
