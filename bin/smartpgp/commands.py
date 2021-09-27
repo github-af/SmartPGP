@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-
 # SmartPGP : JavaCard implementation of OpenPGP card v3 specification
 # https://github.com/ANSSI-FR/SmartPGP
 # Copyright (C) 2016 ANSSI
@@ -79,6 +77,9 @@ OID_ALGS = {
     'brainpoolP512r1': [0x2B, 0x24, 0x03, 0x03, 0x02, 0x08, 0x01, 0x01, 0x0D],
 }
 
+class InvalidBitStringLength(Exception):
+    pass
+
 class WrongKeyRole(Exception):
     pass
 
@@ -93,8 +94,8 @@ def assemble_with_len(prefix,data):
 
 def asOctets(bs):
     l = len(bs)
-    if l%8 is not 0:
-        raise "BitString length is not a multiple of 8"
+    if l%8 != 0:
+        raise InvalidBitStringLength
     result = []
     i = 0
     while i < l:
@@ -122,11 +123,11 @@ def kdf_itersalted_s2k(salt, value, algo, count):
     elif algo == 0x0A: #SHA512
         f = hashlib.new('sha512')
     else:
-        print "invalid KDF"
-    salt = [ord(c) for c in salt]
-    value = [ord(c) for c in value]
-    data = salt + value
-    data = array.array('B', data).tostring()
+        print("invalid KDF")
+    salt = list(salt)#[ord(c) for c in salt]
+    value = list(value)#[ord(c) for c in value]
+    data = bytes(salt + value)
+    #data = array.array('B', data).tostring()
     datalen = len(data)
     while datalen <= count:
         f.update(data)
@@ -137,12 +138,12 @@ def kdf_itersalted_s2k(salt, value, algo, count):
 
 
 def _raw_send_apdu(connection, text, apdu):
-    print "%s" % text
+    print("%s" % text)
     apdu = [int(c) for c in apdu]
     #print ' '.join('{:02X}'.format(c) for c in apdu)
     (data, sw1, sw2) = connection.transmit(apdu)
     #print ' '.join('{:02X}'.format(c) for c in data)
-    print "%02X %02X" % (sw1, sw2)
+    print("%02X %02X" % (sw1, sw2))
     return (data,sw1,sw2)
 
 def list_readers():
@@ -475,8 +476,6 @@ def get_kdf_do(connection):
 
 def change_reference_data_pw1(connection, old, new):
     prefix = [0x00, 0x24, 0x00, 0x81]
-    old = ascii_encode_pin(old)
-    new = ascii_encode_pin(new)
     data = old + new
     apdu = assemble_with_len(prefix, data)
     (_,sw1,sw2) = _raw_send_apdu(connection,"Change PW1", apdu)
@@ -484,8 +483,6 @@ def change_reference_data_pw1(connection, old, new):
 
 def change_reference_data_pw3(connection, old, new):
     prefix = [0x00, 0x24, 0x00, 0x83]
-    old = ascii_encode_pin(old)
-    new = ascii_encode_pin(new)
     data = old + new
     apdu = assemble_with_len(prefix, data)
     (_,sw1,sw2) = _raw_send_apdu(connection,"Change PW3", apdu)
