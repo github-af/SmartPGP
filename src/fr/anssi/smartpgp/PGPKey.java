@@ -215,6 +215,10 @@ public final class PGPKey {
         resetKeys(false);
         has_been_generated = true;
         keys = nkeys;
+
+        if(JCSystem.isObjectDeletionSupported()) {
+            JCSystem.requestObjectDeletion();
+        }
     }
 
 
@@ -395,6 +399,10 @@ public final class PGPKey {
 
         resetKeys(false);
         keys = nkeys;
+
+        if(JCSystem.isObjectDeletionSupported()) {
+            JCSystem.requestObjectDeletion();
+        }
     }
 
 
