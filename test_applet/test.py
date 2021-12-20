@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 
 import smartcard
@@ -87,6 +87,9 @@ TEST_PIN = [0x00, 0x04,
             0x06,
             0x31, 0x32, 0x33, 0x34, 0x35, 0x36];
 
+TEST_DELETION = [0x00, 0x05,
+                 0x00, 0x00];
+
 
 def assemble_with_len(prefix,data):
     return prefix + [len(data)] + data
@@ -103,14 +106,14 @@ def encode_len(data):
 
 def send_apdu(con, text, apdu):
     apdu = [int(c) for c in apdu]
-    #print ' '.join('{:02X}'.format(c) for c in apdu)
+    #print(' '.join('{:02X}'.format(c) for c in apdu))
     (data, sw1, sw2) = con.transmit(apdu)
     if sw1 == 0x90 and sw2 == 0x00:
         if text is not None:
-            print "[+] %s... ok" % text
+            print("[+] %s... ok" % text)
     else:
         if text is not None:
-            print "[-] %s... KO 0x%02X%02X" % (text, sw1, sw2)
+            print("[-] %s... KO 0x%02X%02X" % (text, sw1, sw2))
     return (data, sw1, sw2)
 
 class InvalidCard(Exception):
@@ -182,6 +185,10 @@ def test_pin(con):
     select_applet(con, False)
     (data, _, _) = send_apdu(con, "Test PIN", TEST_PIN);
 
+def test_deletion(con):
+    select_applet(con, False)
+    (data, _, _) = send_apdu(con, "Test OBJECT DELETIOn", TEST_DELETION);
+
 def main():
     reader_list = smartcard.System.readers()
     r = reader_list[0]
@@ -192,6 +199,7 @@ def main():
     test_rsa(con)
     test_ec(con)
     test_pin(con)
+    test_deletion(con)
 
 if __name__=='__main__':
     main()

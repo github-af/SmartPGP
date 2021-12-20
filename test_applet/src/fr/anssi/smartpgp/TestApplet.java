@@ -341,6 +341,13 @@ public final class TestApplet extends Applet {
         }
     }
 
+    private final void processDeletion() {
+        if(!JCSystem.isObjectDeletionSupported()) {
+            ISOException.throwIt(Data.SW_DELETION_NOT_SUPPORTED);
+        }
+        JCSystem.requestObjectDeletion();
+    }
+
     public final void process(final APDU apdu) {
         final byte[] apdubuf = apdu.getBuffer();
 
@@ -374,6 +381,10 @@ public final class TestApplet extends Applet {
             } else {
                 processPin(apdu);
             }
+            break;
+
+        case Data.INS_TEST_DELETION:
+            processDeletion();
             break;
 
         default:
