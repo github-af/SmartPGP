@@ -27,7 +27,7 @@ public final class Constants {
     protected static final short INTERNAL_BUFFER_MAX_LENGTH =
         (short)0x500;
 
-    protected static final short APDU_MAX_LENGTH = (short)256;
+    protected static final short APDU_MAX_LENGTH = (short)0x400;
 
     protected static final byte[] KEY_DERIVATION_FUNCTION_DEFAULT = {
         (byte)0x81, (byte)0x01, (byte)0x00

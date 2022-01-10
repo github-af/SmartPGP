@@ -23,8 +23,9 @@ package fr.anssi.smartpgp;
 import javacard.framework.*;
 import javacard.security.*;
 import javacardx.crypto.*;
+import javacardx.apdu.ExtendedLength;
 
-public final class SmartPGPApplet extends Applet {
+public final class SmartPGPApplet extends Applet implements ExtendedLength {
 
     private final Common common;
     private final Persistent data;
@@ -100,7 +101,7 @@ public final class SmartPGPApplet extends Applet {
         short blen = apdu.setIncomingAndReceive();
 
         final short lc = apdu.getIncomingLength();
-        final short offcdata = ISO7816.OFFSET_CDATA;
+        final short offcdata = apdu.getOffsetCdata();
 
         short off = transients.chainingInputLength();
 
