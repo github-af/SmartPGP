@@ -56,14 +56,3 @@ jobs:
           python3 .github/workflows/card-status.py;
           # Main tests
           python3 .github/workflows/test_SmartPGP.py;
-          # Reset
-          python3 .github/workflows/reset.py;
-          # Test crypto switch
-          python2 bin/example-set-mixed-crypto.py;
-          # Test AES
-          echo -n "AAAAAAAAAAAAAAAA" > /tmp/aes_key.bin;
-          python2 bin/smartpgp-cli put-aes-key -i /tmp/aes_key.bin;
-          echo -n "BBBBBBBBBBBBBBBB" > /tmp/aes_to_encrypt.bin;
-          python2 bin/smartpgp-cli encrypt-aes -p "123456" -i /tmp/aes_to_encrypt.bin -o /tmp/aes_encrypted.bin;
-          python2 bin/smartpgp-cli decrypt-aes -p "123456" -i /tmp/aes_encrypted.bin -o /tmp/aes_decrypted.bin;
-          diff /tmp/aes_decrypted.bin /tmp/aes_to_encrypt.bin;
