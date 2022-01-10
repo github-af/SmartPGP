@@ -23,10 +23,10 @@ jobs:
           sudo apt-get update && sudo apt-get install --reinstall adoptopenjdk-8-hotspot;
           sudo update-java-alternatives -s adoptopenjdk-8-hotspot-amd64;
           # 3) Get Javacard SDKs
-          git clone https://github.com/martinpaljak/oracle_javacard_sdks && mv oracle_javacard_sdks/jc305u3_kit/ /tmp/ && rm -rf oracle_javacard_sdks;
+          git clone https://github.com/martinpaljak/oracle_javacard_sdks && mv oracle_javacard_sdks/jc303_kit/ /tmp/ && mv oracle_javacard_sdks/jc305u3_kit/ /tmp/ &&rm -rf oracle_javacard_sdks;
           # 4) Compile our applet
           cat build.xml | sed 's/<cap /<cap export="SmartPGPApplet" /' > /tmp/build.xml && mv /tmp/build.xml ./; # export jar for simulator
-          JC_HOME=/tmp/jc305u3_kit/ ant;
+          JC_HOME=/tmp/jc303_kit/ ant;
           # 5) Clone jcardsim repository, compile and install
           git clone https://github.com/licel/jcardsim && cd jcardsim && git fetch origin pull/155/head:pr155 && git config --global user.name "John Doe" && git merge pr155 -m "AA" && cd -;
           # Patch random
@@ -44,7 +44,7 @@ jobs:
           # Wait a bit for insertion
           sleep 2;
           echo "========= PCSCD log"     && cat /tmp/log_pcsc;
-          echo "========= jcard sim log" && cat /tmp/log_jcardsim; 
+          echo "========= jcard sim log" && cat /tmp/log_jcardsim;
           # 10) Test our applet
           # Execute tests
           sudo apt-get install -y python3-setuptools python3-pyscard python-setuptools python-pyscard python-pyasn1;
@@ -54,12 +54,12 @@ jobs:
           opensc-tool -s 80b800001810d276000124010304AFAF000000000000050000020F0F00;
           # Get card status
           python3 .github/workflows/card-status.py;
-          # Test ECDSA signatures
+          # Main tests
           python3 .github/workflows/test_SmartPGP.py;
           # Reset
           python3 .github/workflows/reset.py;
           # Test crypto switch
-          python2 bin/example-set-mixed-crypto.py;          
+          python2 bin/example-set-mixed-crypto.py;
           # Test AES
           echo -n "AAAAAAAAAAAAAAAA" > /tmp/aes_key.bin;
           python2 bin/smartpgp-cli put-aes-key -i /tmp/aes_key.bin;
