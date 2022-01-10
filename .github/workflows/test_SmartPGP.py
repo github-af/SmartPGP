@@ -359,7 +359,7 @@ def main(rsa, ec, repeat):
 
 if __name__ == "__main__":
     try:
-        main(rsa=True, ec=False, repeat=200)
+        main(rsa=True, ec=True, repeat=200)
     except OpenPGPpy.openpgp_card.ConnectionException:
         print(f"[-] FAILED to find OpenPGP token")
         exit(1)
