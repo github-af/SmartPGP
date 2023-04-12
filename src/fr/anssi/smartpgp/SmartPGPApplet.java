@@ -767,10 +767,17 @@ public final class SmartPGPApplet extends Applet implements ExtendedLength {
 
         case (byte)0x02:
             assertAdmin();
-            if((lc < Constants.USER_PIN_MIN_SIZE) ||
-               (lc > Constants.USER_PIN_MAX_SIZE)) {
-                ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
-                return;
+            if(data.keyDerivationIsActive()) {
+                if(lc != data.keyDerivationSize()) {
+                    ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
+                    return;
+                }
+            } else {
+                if((lc < Constants.USER_PIN_MIN_SIZE) ||
+                   (lc > Constants.USER_PIN_MAX_SIZE)) {
+                    ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
+                    return;
+                }
             }
             transients.setUserPinMode81(false);
             transients.setUserPinMode82(false);
@@ -1142,10 +1149,17 @@ public final class SmartPGPApplet extends Applet implements ExtendedLength {
 
             case Constants.TAG_RESETTING_CODE:
                 assertAdmin();
-                if((lc < Constants.USER_PUK_MIN_SIZE) ||
-                   (lc > Constants.USER_PUK_MAX_SIZE)) {
-                    ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
-                    return;
+                if(data.keyDerivationIsActive()) {
+                    if(lc != data.keyDerivationSize()) {
+                        ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
+                        return;
+                    }
+                } else {
+                    if((lc < Constants.USER_PUK_MIN_SIZE) ||
+                       (lc > Constants.USER_PUK_MAX_SIZE)) {
+                        ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
+                        return;
+                    }
                 }
                 JCSystem.beginTransaction();
                 data.user_puk_length = (byte)lc;

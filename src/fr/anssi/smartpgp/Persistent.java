@@ -236,8 +236,8 @@ public final class Persistent {
         Common.beginTransaction(isRegistering);
         user_pin_length = (byte)Constants.USER_PIN_DEFAULT.length;
         user_pin.update(Constants.USER_PIN_DEFAULT, (short)0, user_pin_length);
-        user_pin.resetAndUnblock();
         Common.commitTransaction(isRegistering);
+        user_pin.resetAndUnblock();
 
         Common.beginTransaction(isRegistering);
         user_puk_length = (short)0;
@@ -253,8 +253,8 @@ public final class Persistent {
         Common.beginTransaction(isRegistering);
         admin_pin_length = (byte)Constants.ADMIN_PIN_DEFAULT.length;
         admin_pin.update(Constants.ADMIN_PIN_DEFAULT, (short)0, admin_pin_length);
-        admin_pin.resetAndUnblock();
         Common.commitTransaction(isRegistering);
+        admin_pin.resetAndUnblock();
 
         isTerminated = false;
     }
