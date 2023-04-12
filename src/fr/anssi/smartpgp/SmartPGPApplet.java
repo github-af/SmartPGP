@@ -667,6 +667,7 @@ public final class SmartPGPApplet extends Applet implements ExtendedLength {
             }
             JCSystem.beginTransaction();
             data.user_pin_length = minlen;
+            data.user_pin = new OwnerPIN(Constants.USER_PIN_RETRY_COUNT, Constants.USER_PIN_MAX_SIZE);
             data.user_pin.update(transients.buffer, off, data.user_pin_length);
             JCSystem.commitTransaction();
             data.user_pin.resetAndUnblock();
@@ -703,6 +704,7 @@ public final class SmartPGPApplet extends Applet implements ExtendedLength {
             }
             JCSystem.beginTransaction();
             data.admin_pin_length = minlen;
+            data.admin_pin = new OwnerPIN(Constants.ADMIN_PIN_RETRY_COUNT, Constants.ADMIN_PIN_MAX_SIZE);
             data.admin_pin.update(transients.buffer, off, data.admin_pin_length);
             JCSystem.commitTransaction();
             data.admin_pin.resetAndUnblock();
@@ -762,6 +764,7 @@ public final class SmartPGPApplet extends Applet implements ExtendedLength {
             }
             JCSystem.beginTransaction();
             data.user_pin_length = minlen;
+            data.user_pin = new OwnerPIN(Constants.USER_PIN_RETRY_COUNT, Constants.USER_PIN_MAX_SIZE);
             data.user_pin.update(transients.buffer, off, data.user_pin_length);
             JCSystem.commitTransaction();
             data.user_pin.resetAndUnblock();
@@ -785,6 +788,7 @@ public final class SmartPGPApplet extends Applet implements ExtendedLength {
             transients.setUserPinMode82(false);
             JCSystem.beginTransaction();
             data.user_pin_length = (byte)lc;
+            data.user_pin = new OwnerPIN(Constants.USER_PIN_RETRY_COUNT, Constants.USER_PIN_MAX_SIZE);
             data.user_pin.update(transients.buffer, (short)0, data.user_pin_length);
             JCSystem.commitTransaction();
             data.user_pin.resetAndUnblock();
@@ -1165,6 +1169,7 @@ public final class SmartPGPApplet extends Applet implements ExtendedLength {
                 }
                 JCSystem.beginTransaction();
                 data.user_puk_length = (byte)lc;
+                data.user_puk = new OwnerPIN(Constants.USER_PUK_RETRY_COUNT, Constants.USER_PUK_MAX_SIZE);
                 data.user_puk.update(buf, (short)0, data.user_puk_length);
                 JCSystem.commitTransaction();
                 data.user_puk.resetAndUnblock();

@@ -76,14 +76,14 @@ public final class Persistent {
     protected final byte[] key_derivation_function;
     protected short key_derivation_function_length;
 
-    protected final OwnerPIN user_pin; /* PW1 */
+    protected OwnerPIN user_pin; /* PW1 */
     protected byte user_pin_length;
     protected boolean user_pin_force_verify_signature;
 
-    protected final OwnerPIN user_puk; /* resetting code */
+    protected OwnerPIN user_puk; /* resetting code */
     protected byte user_puk_length;
 
-    protected final OwnerPIN admin_pin; /* PW3 */
+    protected OwnerPIN admin_pin; /* PW3 */
     protected byte admin_pin_length;
 
 
@@ -235,6 +235,7 @@ public final class Persistent {
 
         Common.beginTransaction(isRegistering);
         user_pin_length = (byte)Constants.USER_PIN_DEFAULT.length;
+        user_pin = new OwnerPIN(Constants.USER_PIN_RETRY_COUNT, Constants.USER_PIN_MAX_SIZE);
         user_pin.update(Constants.USER_PIN_DEFAULT, (short)0, user_pin_length);
         Common.commitTransaction(isRegistering);
         user_pin.resetAndUnblock();
@@ -252,6 +253,7 @@ public final class Persistent {
 
         Common.beginTransaction(isRegistering);
         admin_pin_length = (byte)Constants.ADMIN_PIN_DEFAULT.length;
+        admin_pin = new OwnerPIN(Constants.ADMIN_PIN_RETRY_COUNT, Constants.ADMIN_PIN_MAX_SIZE);
         admin_pin.update(Constants.ADMIN_PIN_DEFAULT, (short)0, admin_pin_length);
         Common.commitTransaction(isRegistering);
         admin_pin.resetAndUnblock();
