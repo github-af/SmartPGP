@@ -5,7 +5,7 @@ on: push
 
 jobs:
   applet_tests:
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-20.04
     steps:
       # Checkout repository
       - name: checkout repository
@@ -15,44 +15,40 @@ jobs:
       - name: applet tests
         shell: bash
         run: |
-          # 1) Get dependencies
+          # get dependencies
+          echo "==== get dependencies";
           sudo apt-get install -y --no-install-recommends procps autoconf automake libtool m4 pkg-config help2man make gcc ant automake autotools-dev sudo wget gnupg software-properties-common maven git pcscd libpcsclite-dev opensc;
-          # 2) Get JDK
-          wget -qO - https://adoptopenjdk.jfrog.io/adoptopenjdk/api/gpg/key/public | sudo apt-key add -;
-          sudo add-apt-repository --yes https://adoptopenjdk.jfrog.io/adoptopenjdk/deb/;
-          sudo apt-get update && sudo apt-get install --reinstall adoptopenjdk-8-hotspot;
-          sudo update-java-alternatives -s adoptopenjdk-8-hotspot-amd64;
-          # 3) Get Javacard SDKs
-          git clone https://github.com/martinpaljak/oracle_javacard_sdks && mv oracle_javacard_sdks/jc304_kit/ /tmp/ && mv oracle_javacard_sdks/jc305u3_kit/ /tmp/ &&rm -rf oracle_javacard_sdks;
-          # 4) Compile our applet
-          cat build.xml | sed 's/<cap /<cap export="SmartPGPApplet" /' > /tmp/build.xml && mv /tmp/build.xml ./; # export jar for simulator
+          sudo apt-get install -y python3-setuptools python3-pyscard python3-pyasn1;
+          pip3 install OpenPGPpy;
+          # get JavaCard SDKs
+          echo "==== get JavaCard SDKs";
+          git clone https://github.com/martinpaljak/oracle_javacard_sdks && mv oracle_javacard_sdks/jc304_kit/ /tmp/ && mv oracle_javacard_sdks/jc305u4_kit/ /tmp/ && rm -rf oracle_javacard_sdks;
+          # compile SmartPGP
+          echo "==== compile SmartPGP";
+          cat build.xml | sed 's/<cap /<cap export="SmartPGPApplet" /' > /tmp/build.xml && mv /tmp/build.xml ./;
           JC_HOME=/tmp/jc304_kit/ ant;
-          # 5) Clone jcardsim repository, compile and install
-          git clone https://github.com/licel/jcardsim && cd jcardsim && git fetch origin pull/155/head:pr155 && git config --global user.name "John Doe" && git merge pr155 -m "AA" && cd -;
-          # Patch random
-          cd jcardsim && patch -p1 < ../.github/workflows/jcardsim_patches/jcardsim_random_patch && cd -;
-          # Compile
-          cd jcardsim && export JC_CLASSIC_HOME=/tmp/jc305u3_kit/ && mvn initialize && mvn clean install && cd -;
-          # 7) Clone vsmartcard, compile and install
+          # clone jcardsim repository, compile and install
+          echo "==== clone jcardsim repository, compile and install";
+          git clone https://github.com/licel/jcardsim;
+          cd jcardsim && export JC_CLASSIC_HOME=/tmp/jc305u4_kit/ && mvn initialize && mvn clean package && cd -;
+          # clone vsmartcard, compile and install
+          echo "==== clone vsmartcard, compile and install";
           git clone https://github.com/frankmorgner/vsmartcard.git;
           cd vsmartcard/virtualsmartcard && autoreconf --verbose --install && ./configure --sysconfdir=/etc && make && sudo make install && cd -;
-          # 8) (re)Launch PCSCD
-          sudo killall pcscd && sudo pcscd -fad &>/tmp/log_pcsc & echo "PCSCD launched";
+          # relaunch PCSC
+          echo "==== relaunch PCSC";
+          sudo killall -KILL pcscd 2> /dev/null || true;
+          sudo pcscd -fad 2>&1 > /tmp/log_pcsc &
           sleep 2;
-          # 9) launch jcardsim
-          java -cp jcardsim/target/jcardsim-3.0.5-SNAPSHOT.jar:SmartPGPApplet/smartpgp.jar com.licel.jcardsim.remote.VSmartCard .github/workflows/smartpgp.cfg &>/tmp/log_jcardsim & echo "jcardsim launched!";
-          # Wait a bit for insertion
-          sleep 2;
-          echo "========= PCSCD log"     && cat /tmp/log_pcsc;
-          echo "========= jcard sim log" && cat /tmp/log_jcardsim;
-          # 10) Test our applet
-          # Execute tests
-          sudo apt-get install -y python3-setuptools python3-pyscard python-setuptools python-pyscard python-pyasn1;
-          pip3 install OpenPGPpy;
-          # Install applet
+          # launch jcardsim
+          echo "==== launch jcardsim";
+          java -cp jcardsim/target/jcardsim-3.0.5-SNAPSHOT.jar:SmartPGPApplet/smartpgp.jar com.licel.jcardsim.remote.VSmartCard .github/workflows/smartpgp.cfg 2>&1 > /tmp/log_jcardsim &
+          sleep 5;
+          # install SmartPGP
+          echo "==== test SmartPGP";
           opensc-tool -l;
           opensc-tool -s 80b800001810d276000124010304AFAF000000000000050000020F0F00;
-          # Get card status
+          # get card status
           python3 .github/workflows/card-status.py;
-          # Main tests
+          # main tests
           python3 .github/workflows/test_SmartPGP.py;
