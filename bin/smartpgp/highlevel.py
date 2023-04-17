@@ -462,17 +462,17 @@ class CardConnectionContext:
             raise AdminPINFailed
         ####### step 3bis
         if nresetting_code != None:
-            set_resetting_code(self.connection, nresetting_code)
+            (_,sw1,sw2) = set_resetting_code(self.connection, nresetting_code)
             if sw1!=0x90 or sw2!=0x00:
                 print("set_resetting_code failed")
                 return
         ####### step 4
-        change_reference_data_pw1(self.connection, ascii_encode_pin(pw1), list(npw1))
+        (sw1,sw2) = change_reference_data_pw1(self.connection, ascii_encode_pin(pw1), list(npw1))
         if sw1!=0x90 or sw2!=0x00:
             print("change_reference_data_pw1 failed")
             return
         ####### step 4bis
-        change_reference_data_pw3(self.connection, ascii_encode_pin(pw3), list(npw3))
+        (sw1,sw2) = change_reference_data_pw3(self.connection, ascii_encode_pin(pw3), list(npw3))
         if sw1!=0x90 or sw2!=0x00:
             print("change_reference_data_pw3 failed")
             return
