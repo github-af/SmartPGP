@@ -25,7 +25,7 @@ import javacard.framework.*;
 public final class Constants {
 
     protected static final short INTERNAL_BUFFER_MAX_LENGTH =
-        (short)0x500;
+        (short)0x730; // to deal with RSA 4096 bits
 
     protected static final short APDU_MAX_LENGTH = (short)0x400;
 

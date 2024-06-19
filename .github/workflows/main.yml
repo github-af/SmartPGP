@@ -52,3 +52,10 @@ jobs:
           python3 .github/workflows/card-status.py;
           # main tests
           python3 .github/workflows/test_SmartPGP.py;
+
+      - name: Upload All Artifacts file
+        uses: actions/upload-artifact@v2
+        with:
+          name: "SmartPGPApplet-${{ github.run_number }}.cap"
+          path: |
+            ./SmartPGPApplet.cap
