@@ -58,6 +58,9 @@ public final class PGPKey {
             keys.getPrivate().clearKey();
             keys.getPublic().clearKey();
             keys = null;
+            if(!isRegistering) {
+                Common.requestDeletion();
+            }
         }
 
         if(certificate_length > 0) {
@@ -205,10 +208,13 @@ public final class PGPKey {
 
 
     private final KeyPair generateRSA() {
-        final PrivateKey priv = (PrivateKey)KeyBuilder.buildKey(KeyBuilder.TYPE_RSA_CRT_PRIVATE, rsaModulusBitSize(), false);
-        final RSAPublicKey pub = (RSAPublicKey)KeyBuilder.buildKey(KeyBuilder.TYPE_RSA_PUBLIC, rsaModulusBitSize(), false);
+        PrivateKey priv = (PrivateKey)KeyBuilder.buildKey(KeyBuilder.TYPE_RSA_CRT_PRIVATE, rsaModulusBitSize(), false);
+        RSAPublicKey pub = (RSAPublicKey)KeyBuilder.buildKey(KeyBuilder.TYPE_RSA_PUBLIC, rsaModulusBitSize(), false);
 
         if((priv == null) || (pub == null)) {
+            priv = null;
+            pub = null;
+            Common.requestDeletion();
             return null;
         }
 
@@ -219,13 +225,16 @@ public final class PGPKey {
 
 
     private final KeyPair generateEC(final ECCurves ec) {
+        ECParams params = ecParams(ec);
 
-        final ECParams params = ecParams(ec);
-
-        final ECPrivateKey priv = (ECPrivateKey)KeyBuilder.buildKey(KeyBuilder.TYPE_EC_FP_PRIVATE, params.nb_bits, false);
-        final ECPublicKey pub = (ECPublicKey)KeyBuilder.buildKey(KeyBuilder.TYPE_EC_FP_PUBLIC, params.nb_bits, false);
+        ECPrivateKey priv = (ECPrivateKey)KeyBuilder.buildKey(KeyBuilder.TYPE_EC_FP_PRIVATE, params.nb_bits, false);
+        ECPublicKey pub = (ECPublicKey)KeyBuilder.buildKey(KeyBuilder.TYPE_EC_FP_PUBLIC, params.nb_bits, false);
 
         if((priv == null) || (pub == null)) {
+            params = null;
+            priv = null;
+            pub = null;
+            Common.requestDeletion();
             return null;
         }
 
@@ -236,31 +245,30 @@ public final class PGPKey {
     }
 
 
-    protected final void generate(final ECCurves ec) {
-
-        KeyPair nkeys = null;
+    protected final void generate() {
+        resetKeys(false);
 
         if(isRsa()) {
-            nkeys = generateRSA();
+            keys = generateRSA();
         } else if(isEc()) {
-            nkeys = generateEC(ec);
+            keys = generateEC(ec);
         }
 
-        if(nkeys == null) {
+        if(keys == null) {
             ISOException.throwIt(ISO7816.SW_CONDITIONS_NOT_SATISFIED);
             return;
         }
 
-        nkeys.genKeyPair();
+        keys.genKeyPair();
 
-        if(!nkeys.getPublic().isInitialized() || !nkeys.getPrivate().isInitialized()) {
+        if(!keys.getPublic().isInitialized() || !keys.getPrivate().isInitialized()) {
+            keys = null;
+            Common.requestDeletion();
             ISOException.throwIt(ISO7816.SW_CONDITIONS_NOT_SATISFIED);
             return;
         }
 
-        resetKeys(false);
         has_been_generated = true;
-        keys = nkeys;
     }
 
 
@@ -416,7 +424,6 @@ public final class PGPKey {
 
     protected final void importKey(final ECCurves ec,
                                    final byte[] buf, final short boff, final short len) {
-
         short off = boff;
 
         short template_len = 0;
@@ -486,30 +493,28 @@ public final class PGPKey {
             }
         }
 
-        KeyPair nkeys = null;
+        resetKeys(false);
 
         if(isRsa()) {
-            nkeys = importRSAKey(buf, data_off, data_len, data_tag_count, data_tag_val, data_tag_len);
+            keys = importRSAKey(buf, data_off, data_len, data_tag_count, data_tag_val, data_tag_len);
         } else if(isEc()) {
-            nkeys = importECKey(ec, buf, data_off, data_len, data_tag_count, data_tag_val, data_tag_len);
+            keys = importECKey(ec, buf, data_off, data_len, data_tag_count, data_tag_val, data_tag_len);
         }
 
-        if(nkeys == null) {
+        if(keys == null) {
             ISOException.throwIt(ISO7816.SW_WRONG_DATA);
             return;
         }
 
-        if(!nkeys.getPrivate().isInitialized() || !nkeys.getPublic().isInitialized()) {
+        if(!keys.getPrivate().isInitialized() || !keys.getPublic().isInitialized()) {
+            keys = null;
+            Common.requestDeletion();
             return;
         }
-
-        resetKeys(false);
-        keys = nkeys;
     }
 
 
     protected final short writePublicKeyDo(final byte[] buf, short off) {
-
         if(!isInitialized()) {
             ISOException.throwIt(Constants.SW_REFERENCE_DATA_NOT_FOUND);
             return 0;
@@ -520,7 +525,6 @@ public final class PGPKey {
         off = Util.setShort(buf, off, (short)0x7f49);
 
         if(isRsa()) {
-
             final RSAPublicKey rsapub = (RSAPublicKey)pub;
             final short modulus_size = Common.bitsToBytes(rsaModulusBitSize());
             final short exponent_size = Common.bitsToBytes(rsaExponentBitSize());
@@ -542,9 +546,7 @@ public final class PGPKey {
             off += rsapub.getExponent(buf, off);
 
             return off;
-
         } else if(isEc()) {
-
             final ECPublicKey ecpub = (ECPublicKey)pub;
             final short qsize = (short)(1 + 2 * (short)((ecpub.getSize() / 8) + (((ecpub.getSize() % 8) == 0) ? 0 : 1)));
             short rsize = (short)(1 + qsize);
@@ -564,7 +566,6 @@ public final class PGPKey {
             off += ecpub.getW(buf, off);
 
             return off;
-
         }
 
         ISOException.throwIt(ISO7816.SW_CONDITIONS_NOT_SATISFIED);
@@ -577,7 +578,6 @@ public final class PGPKey {
     protected final short sign(final Common common,
                                final byte[] buf, final short lc,
                                final boolean forAuth) {
-
         if(!isInitialized()) {
             ISOException.throwIt(Constants.SW_REFERENCE_DATA_NOT_FOUND);
             return 0;
@@ -590,7 +590,6 @@ public final class PGPKey {
         byte[] sha_header = null;
 
         if(isRsa()) {
-
             if(!forAuth) {
                 if(lc == (short)(2 + Constants.DSI_SHA256_HEADER[1])) {
                     sha_header = Constants.DSI_SHA256_HEADER;
