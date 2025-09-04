@@ -92,7 +92,6 @@ public final class Common {
     }
 
     protected static final short skipLength(final byte[] buf, final short off, final short len) {
-
         if(len < 1) {
             ISOException.throwIt(ISO7816.SW_WRONG_DATA);
             return off;
@@ -124,7 +123,6 @@ public final class Common {
     }
 
     protected static final short readLength(final byte[] buf, final short off, final short len) {
-
         if(len < 1) {
             ISOException.throwIt(ISO7816.SW_WRONG_DATA);
             return (short)0;
@@ -209,5 +207,11 @@ public final class Common {
         }
 
         return off;
+    }
+
+    protected static final void requestDeletion() {
+        if(JCSystem.isObjectDeletionSupported()) {
+            JCSystem.requestObjectDeletion();
+        }
     }
 }
