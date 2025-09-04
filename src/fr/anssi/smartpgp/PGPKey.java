@@ -268,7 +268,7 @@ public final class PGPKey {
     }
 
 
-    protected final void generate() {
+    protected final void generate(final ECCurves ec) {
         resetKeys(false);
 
         if(isRsa()) {

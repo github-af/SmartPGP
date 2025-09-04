@@ -108,6 +108,9 @@ public final class SecureMessaging {
         senc = null;
         smac = null;
         srmac = null;
+        if(!isRegistering) {
+            Common.requestDeletion();
+        }
         static_key.reset(isRegistering);
     }
 
@@ -203,6 +206,9 @@ public final class SecureMessaging {
 
         if(!eskcard.isInitialized() ||
            !epkcard.isInitialized()) {
+            eskcard = null;
+            epkcard = null;
+            Common.requestDeletion();
             ISOException.throwIt(Constants.SW_MEMORY_FAILURE);
             return 0;
         }
@@ -214,6 +220,8 @@ public final class SecureMessaging {
         msglen += key_agreement.generateSecret(buf, off, keylen, buf, len);
         eskcard.clearKey();
         eskcard = null;
+
+        Common.requestDeletion();
 
         static_key.initKeyAgreement(key_agreement);
         msglen += key_agreement.generateSecret(buf, off, keylen, buf, (short)(len + msglen));
@@ -257,6 +265,8 @@ public final class SecureMessaging {
         epkcard = null;
 
         ekcard = null;
+
+        Common.requestDeletion();
 
         buf[off++] = (byte)0x86;
         buf[off++] = (byte)Constants.AES_BLOCK_SIZE;
