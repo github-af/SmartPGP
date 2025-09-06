@@ -1,54 +1,111 @@
-name: smartgpg-test-applet
+name: SmartPGP CI
 
-# Run this workflow every time a new commit pushed to your repository
-on: push
+on:
+  push:
+    branches: [ '*' ]
+    tags: [ 'v*' ]
+  workflow_dispatch:
+
+env:
+  SUFFIX: ${{ github.ref_type == 'tag' && github.ref_name || github.sha }}
+  JCKIT: jc304_kit
 
 jobs:
-  applet_tests:
-    runs-on: ubuntu-20.04
+  build-and-test:
+    name: Build and test
+    runs-on: ubuntu-latest
     steps:
-      # Checkout repository
-      - name: checkout repository
-        uses: actions/checkout@v2
-      # Run actions
-      # Compilation tests
-      - name: applet tests
-        shell: bash
+      - uses: actions/checkout@v4
+
+      - name: Install Oracle JCSDKs
         run: |
-          # get dependencies
-          echo "==== get dependencies";
-          sudo apt-get install -y --no-install-recommends procps autoconf automake libtool m4 pkg-config help2man make gcc ant automake autotools-dev sudo wget gnupg software-properties-common maven git pcscd libpcsclite-dev opensc;
-          sudo apt-get install -y python3-setuptools python3-pyscard python3-pyasn1;
-          pip3 install OpenPGPpy;
-          # get JavaCard SDKs
-          echo "==== get JavaCard SDKs";
-          git clone https://github.com/martinpaljak/oracle_javacard_sdks && mv oracle_javacard_sdks/jc304_kit/ /tmp/ && mv oracle_javacard_sdks/jc305u4_kit/ /tmp/ && rm -rf oracle_javacard_sdks;
-          # compile SmartPGP
-          echo "==== compile SmartPGP";
-          cat build.xml | sed 's/<cap /<cap export="SmartPGPApplet" /' > /tmp/build.xml && mv /tmp/build.xml ./;
-          JC_HOME=/tmp/jc304_kit/ ant;
-          # clone jcardsim repository, compile and install
-          echo "==== clone jcardsim repository, compile and install";
-          git clone https://github.com/licel/jcardsim;
-          cd jcardsim && export JC_CLASSIC_HOME=/tmp/jc305u4_kit/ && mvn initialize && mvn clean package && cd -;
-          # clone vsmartcard, compile and install
-          echo "==== clone vsmartcard, compile and install";
-          git clone https://github.com/frankmorgner/vsmartcard.git;
-          cd vsmartcard/virtualsmartcard && autoreconf --verbose --install && ./configure --sysconfdir=/etc && make && sudo make install && cd -;
-          # relaunch PCSC
-          echo "==== relaunch PCSC";
-          sudo killall -KILL pcscd 2> /dev/null || true;
-          sudo pcscd -fad 2>&1 > /tmp/log_pcsc &
-          sleep 2;
-          # launch jcardsim
-          echo "==== launch jcardsim";
-          java -cp jcardsim/target/jcardsim-3.0.5-SNAPSHOT.jar:SmartPGPApplet/smartpgp.jar com.licel.jcardsim.remote.VSmartCard .github/workflows/smartpgp.cfg 2>&1 > /tmp/log_jcardsim &
-          sleep 5;
-          # install SmartPGP
-          echo "==== test SmartPGP";
-          opensc-tool -l;
-          opensc-tool -s 80b800001810d276000124010304AFAF000000000000050000020F0F00;
-          # get card status
-          python3 .github/workflows/card-status.py;
-          # main tests
-          python3 .github/workflows/test_SmartPGP.py;
+          git clone https://github.com/martinpaljak/oracle_javacard_sdks
+          mv oracle_javacard_sdks/${{ env.JCKIT }}/ /tmp/
+          mv oracle_javacard_sdks/jc305u4_kit /tmp/
+          rm -rf oracle_javacard_sdks
+
+      - name: Install build dependencies
+        run: sudo apt-get install -y --no-install-recommends openjdk-11-jdk-headless ant git
+
+      - name: Build applet
+        run: JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64 JC_HOME=/tmp/${{ env.JCKIT }}/ ant
+
+      - name: Install test environment dependencies
+        run: |
+          sudo apt-get install -y --no-install-recommends procps autoconf automake libtool m4 pkg-config help2man make gcc automake autotools-dev libpcsclite-dev wget gnupg software-properties-common maven git pcscd libpcsclite-dev pcsc-tools opensc
+
+      - name: Build and install vmsartcard
+        run: |
+          git clone https://github.com/frankmorgner/vsmartcard
+          cd vsmartcard/virtualsmartcard
+          autoreconf --install
+          autoupdate
+          autoreconf --install
+          ./configure --enable-vpcdslots=1
+          make
+          sudo make install
+
+      - name: Build and launch jcardsim
+        run: |
+          git clone https://github.com/licel/jcardsim
+          cd jcardsim
+          export JC_CLASSIC_HOME=/tmp/jc305u4_kit/
+          mvn --quiet initialize
+          mvn --quiet clean package -DskipTests=true
+          cd ..
+
+      - name: Install test dependencies
+        run: |
+          sudo apt install -y python3-setuptools python3-pyscard python3-pyasn1
+          pip3 install OpenPGPpy
+
+      - name: Create virtual smartcard
+        run: |
+          sudo systemctl disable --now pcscd.service pcscd.socket
+          sudo chmod -R 777 /run/pcscd
+          pcscd --disable-polkit
+          sleep 1
+          pcsc_scan -r -v
+          java -cp jcardsim/target/jcardsim-3.0.5-SNAPSHOT.jar:build/smartpgp.jar com.licel.jcardsim.remote.VSmartCard .github/workflows/smartpgp.cfg 2>&1 > /tmp/log_jcardsim &
+          sleep 2
+          pcsc_scan -c -v
+          opensc-tool -s 80b800001810d276000124010304AFAF000000000000050000020F0F00
+
+      - name: Run tests
+        run: |
+          python3 .github/workflows/card-status.py
+          python3 .github/workflows/test_SmartPGP.py
+
+      - name: Build applet (RSA 2048)
+        run: |
+          patch -p1 < .github/workflows/rsa-2048.patch
+          JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64 JC_HOME=/tmp/${{ env.JCKIT }}/ ant
+          patch -p1 -R < .github/workflows/rsa-2048.patch
+          mv SmartPGPApplet.cap SmartPGPApplet-rsa_up_to_2048.cap
+
+      - name: Build applet (RSA 3072)
+        run: |
+          patch -p1 < .github/workflows/rsa-3072.patch
+          JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64 JC_HOME=/tmp/${{ env.JCKIT }}/ ant
+          patch -p1 -R < .github/workflows/rsa-3072.patch
+          mv SmartPGPApplet.cap SmartPGPApplet-rsa_up_to_3072.cap
+
+      - name: Build applet (RSA 4096)
+        run: |
+          patch -p1 < .github/workflows/rsa-4096.patch
+          JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64 JC_HOME=/tmp/${{ env.JCKIT }}/ ant
+          patch -p1 -R < .github/workflows/rsa-4096.patch
+          mv SmartPGPApplet.cap SmartPGPApplet-rsa_up_to_4096.cap
+
+      - name: Gather applets
+        run: |
+          mkdir -p output/SmartPGP-${{ env.SUFFIX }}
+          cp -R *.cap output/SmartPGP-${{ env.SUFFIX }}/
+
+      - name: Upload applets
+        uses: actions/upload-artifact@v4
+        with:
+          name: SmartPGP-${{ env.SUFFIX }}
+          path: output
+          retention-days: 0
+
