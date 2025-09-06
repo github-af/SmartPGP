@@ -1,0 +1,13 @@
+diff --git a/src/fr/anssi/smartpgp/Constants.java b/src/fr/anssi/smartpgp/Constants.java
+index 1cdd733..b369ee1 100644
+--- a/src/fr/anssi/smartpgp/Constants.java
++++ b/src/fr/anssi/smartpgp/Constants.java
+@@ -25,7 +25,7 @@ import javacard.framework.*;
+ public final class Constants {
+ 
+     protected static final short INTERNAL_BUFFER_MAX_LENGTH =
+-        (short)0x500;
++        (short)0x3b0;
+ 
+     protected static final short APDU_MAX_LENGTH = (short)0x400;
+ 
