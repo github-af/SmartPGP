@@ -20,9 +20,18 @@
 
 package fr.anssi.smartpgp;
 
-import javacard.framework.*;
-import javacard.security.*;
-import javacardx.crypto.*;
+import javacard.framework.ISO7816;
+import javacard.framework.ISOException;
+import javacard.framework.JCSystem;
+import javacard.framework.Util;
+import javacard.security.AESKey;
+import javacard.security.KeyAgreement;
+import javacard.security.KeyBuilder;
+import javacard.security.KeyPair;
+import javacard.security.MessageDigest;
+import javacard.security.XECPrivateKey;
+import javacard.security.XECPublicKey;
+import javacardx.crypto.Cipher;
 
 public final class SecureMessaging {
 
@@ -190,15 +199,8 @@ public final class SecureMessaging {
             return 0;
         }
 
-        ECPrivateKey eskcard = (ECPrivateKey)KeyBuilder.buildKey(KeyBuilder.TYPE_EC_FP_PRIVATE,
-                                                                 params.nb_bits,
-                                                                 false);
-        ECPublicKey epkcard = (ECPublicKey)KeyBuilder.buildKey(KeyBuilder.TYPE_EC_FP_PUBLIC,
-                                                               params.nb_bits,
-                                                               false);
-
-        params.setParams(eskcard);
-        params.setParams(epkcard);
+        XECPrivateKey eskcard = params.createPrivateKey(false);
+        XECPublicKey epkcard = params.createPublicKey(false);
 
         KeyPair ekcard = new KeyPair(epkcard, eskcard);
 
@@ -258,7 +260,7 @@ public final class SecureMessaging {
         Util.setShort(buf, off, (short)0x5F49);
         off += 2;
         off = Common.writeLength(buf, off, (short)(2 * Common.bitsToBytes(params.nb_bits) + 1));
-        off += epkcard.getW(buf, off);
+        off += epkcard.getEncoded(buf, off);
         msglen = off;
 
         epkcard.clearKey();

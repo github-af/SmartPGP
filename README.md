@@ -6,7 +6,7 @@ SmartPGP is a free and open source implementation of the [OpenPGP card
 The main improvement introduced in OpenPGP card 3.x specification from
 previous version is the support of elliptic curve cryptography with
 several existing curves (NIST P-256, NIST P-384, NIST P-521, brainpool
-p256r1, brainpool p384r1 and brainpool p512r1).
+p256r1, brainpool p384r1 and brainpool p512r1 and curve25519).
 
 
 ## Features
