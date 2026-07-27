@@ -39,6 +39,7 @@ VALID_COMMANDS={
         'switch-p256': CardConnectionContext.cmd_switch_p256,
         'switch-p384': CardConnectionContext.cmd_switch_p384,
         'switch-p521': CardConnectionContext.cmd_switch_p521,
+        'switch-25519': CardConnectionContext.cmd_switch_25519, 
         'generate-sm-key': CardConnectionContext.cmd_generate_sm_key,
         'get-sm-key': CardConnectionContext.cmd_get_sm_key,
         'set-resetting-code': CardConnectionContext.cmd_set_resetting_code,

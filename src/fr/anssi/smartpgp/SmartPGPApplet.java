@@ -1307,7 +1307,7 @@ public final class SmartPGPApplet extends Applet implements ExtendedLength {
             }
             JCSystem.commitTransaction();
 
-            return data.pgp_keys[Persistent.PGP_KEYS_OFFSET_SIG].sign(common, transients.buffer, lc, false);
+            return data.pgp_keys[Persistent.PGP_KEYS_OFFSET_SIG].sign(common, ec, transients.buffer, lc, false);
         }
 
         /* PSO : DECIPHER */
@@ -1389,7 +1389,7 @@ public final class SmartPGPApplet extends Applet implements ExtendedLength {
             case (byte)0x00:
                 sensitiveData();
                 assertUserMode82();
-                return data.pgp_keys[Persistent.PGP_KEYS_OFFSET_AUT].sign(common, transients.buffer, lc, true);
+                return data.pgp_keys[Persistent.PGP_KEYS_OFFSET_AUT].sign(common, ec, transients.buffer, lc, true);
 
             default:
                 break;
@@ -1417,7 +1417,7 @@ public final class SmartPGPApplet extends Applet implements ExtendedLength {
         }
 
         if(le != 0) {
-            common.random.generateData(transients.buffer, (short)0, le);
+            common.random.nextBytes(transients.buffer, (short)0, le);
         }
 
         return le;

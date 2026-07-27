@@ -66,6 +66,13 @@ ALGS_ALIASES = {
     'BP512': 'brainpoolP512r1',
     'BP-512': 'brainpoolP512r1',
     'brainpool512': 'brainpoolP512r1',
+
+    'ed25519': 'ed25519',
+    'Ed25519': 'ed25519',
+    'Curve25519': 'ed25519',
+
+    'x25519': 'x25519',
+    'X25519': 'x25519',
 }
 
 OID_ALGS = {
@@ -75,6 +82,8 @@ OID_ALGS = {
     'brainpoolP256r1': [0x2B, 0x24, 0x03, 0x03, 0x02, 0x08, 0x01, 0x01, 0x07],
     'brainpoolP384r1': [0x2B, 0x24, 0x03, 0x03, 0x02, 0x08, 0x01, 0x01, 0x0B],
     'brainpoolP512r1': [0x2B, 0x24, 0x03, 0x03, 0x02, 0x08, 0x01, 0x01, 0x0D],
+    'ed25519': [0x2B, 0x06, 0x01, 0x04, 0x01, 0xDA, 0x47, 0x0F, 0x01],
+    'x25519': [0x2B, 0x06, 0x01, 0x04, 0x01, 0x97, 0x55, 0x01, 0x05, 0x01],
 }
 
 class InvalidBitStringLength(Exception):
@@ -261,10 +270,15 @@ def switch_crypto(connection,crypto,key_role):
     if key_role == 'sig':
         role = 0xc1
         byte1 = 0x13
+        if alg_name == 'ed25519':
+            byte1 = 0x16
     elif key_role == 'dec':
         role = 0xc2
     elif key_role == 'auth':
         role = 0xc3
+        byte1 = 0x13
+        if alg_name == 'ed25519':
+            byte1 = 0x16
     elif key_role == 'sm':
         role = 0xd4
     else:

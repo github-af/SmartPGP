@@ -23,33 +23,26 @@ package fr.anssi.smartpgp;
 import javacard.framework.JCSystem;
 import javacard.framework.Util;
 import javacard.security.KeyBuilder;
-import javacard.security.ECKey;
-import javacard.security.ECPrivateKey;
-import javacard.security.ECPublicKey;
+import javacard.security.NamedParameterSpec;
+import javacard.security.XECKey;
+import javacard.security.XECPrivateKey;
+import javacard.security.XECPublicKey;
 
 public final class ECParams {
 
-    protected final short nb_bits;
     protected final byte[] oid;
-    protected final byte[] field, a, b, g, r;
-    protected final short k;
+    protected final boolean isEdwards;
+    protected final short nb_bits;
+    protected final NamedParameterSpec spec;
 
-    protected ECParams(final short nb_bits,
-                       final byte[] oid,
-                       final byte[] field, /* p */
-                       final byte[] a,
-                       final byte[] b,
-                       final byte[] g,
-                       final byte[] r, /* n */
-                       final short k) /* h */ {
-        this.nb_bits = nb_bits;
+    protected ECParams(final byte[] oid,
+                       final boolean isEdwards,
+                       final short nb_bits,
+                       final NamedParameterSpec spec) {
         this.oid = oid;
-        this.field = field;
-        this.a = a;
-        this.b = b;
-        this.g = g;
-        this.r = r;
-        this.k = k;
+        this.isEdwards = isEdwards;
+        this.nb_bits = nb_bits;
+        this.spec = spec;
     }
 
 
@@ -57,12 +50,26 @@ public final class ECParams {
         return (len == (short)oid.length) && (Util.arrayCompare(buf, off, oid, (short)0, len) == 0);
     }
 
-    protected final void setParams(final ECKey key) {
-        key.setFieldFP(field, (short)0, (short)field.length);
-        key.setA(a, (short)0, (short)a.length);
-        key.setB(b, (short)0, (short)b.length);
-        key.setG(g, (short)0, (short)g.length);
-        key.setR(r, (short)0, (short)r.length);
-        key.setK(k);
+    private XECKey createKey(final boolean is_private, final boolean is_persistent) {
+        short sens = KeyBuilder.ATTR_PUBLIC;
+        byte mem = JCSystem.MEMORY_TYPE_TRANSIENT_DESELECT;
+
+        if(is_private) {
+            sens = KeyBuilder.ATTR_PRIVATE;
+        }
+
+        if(is_persistent) {
+            mem = JCSystem.MEMORY_TYPE_PERSISTENT;
+        }
+
+        return (XECKey)KeyBuilder.buildXECKey(this.spec, (short)(mem | sens), true);
+    }
+
+    protected final XECPublicKey createPublicKey(final boolean is_persistent) {
+        return (XECPublicKey)createKey(false, is_persistent);
+    }
+
+    protected final XECPrivateKey createPrivateKey(final boolean is_persistent) {
+        return (XECPrivateKey)createKey(true, is_persistent);
     }
 }

@@ -39,8 +39,10 @@ public final class Common {
     protected final Signature sign_ecdsa_sha_256;
     protected final Signature sign_ecdsa_sha_384;
     protected final Signature sign_ecdsa_sha_512;
+    protected final Signature sign_eddsa;
 
     protected final KeyAgreement ka_ec_dh;
+    protected final KeyAgreement ka_xdh;
 
     protected final RandomData random;
 
@@ -53,10 +55,12 @@ public final class Common {
         sign_ecdsa_sha_256 = Signature.getInstance(Signature.ALG_ECDSA_SHA_256, false);
         sign_ecdsa_sha_384 = Signature.getInstance(Signature.ALG_ECDSA_SHA_384, false);
         sign_ecdsa_sha_512 = Signature.getInstance(Signature.ALG_ECDSA_SHA_512, false);
+        sign_eddsa = Signature.getInstance(MessageDigest.ALG_NULL, Signature.SIG_CIPHER_EDDSA, Cipher.PAD_NULL, false);
 
         ka_ec_dh = KeyAgreement.getInstance(KeyAgreement.ALG_EC_SVDP_DH_PLAIN, false);
+        ka_xdh = KeyAgreement.getInstance(KeyAgreement.ALG_XDH, false);
 
-        random = RandomData.getInstance(RandomData.ALG_SECURE_RANDOM);
+        random = RandomData.getInstance(RandomData.ALG_TRNG);
     }
 
     protected static final void beginTransaction(final boolean isRegistering) {

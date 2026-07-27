@@ -33,8 +33,8 @@ import javacard.security.PublicKey;
 import javacard.security.RSAPrivateCrtKey;
 import javacard.security.RSAPublicKey;
 import javacard.security.Signature;
-import javacard.security.ECPrivateKey;
-import javacard.security.ECPublicKey;
+import javacard.security.XECPrivateKey;
+import javacard.security.XECPublicKey;
 import javacardx.crypto.Cipher;
 
 public final class PGPKey {
@@ -168,6 +168,7 @@ public final class PGPKey {
 
         case 0x12:
         case 0x13:
+        case 0x16:
             if(len < 2) {
                 ISOException.throwIt(ISO7816.SW_WRONG_DATA);
                 return;
@@ -211,7 +212,16 @@ public final class PGPKey {
 
     protected final boolean isEc() {
         return ((attributes[0] == (byte)0x12) ||
-                (attributes[0] == (byte)0x13));
+                (attributes[0] == (byte)0x13) ||
+                (attributes[0] == (byte)0x16));
+    }
+
+    protected final boolean isEcEdwards(final ECCurves ec) {
+        final ECParams params = ecParams(ec);
+        if(params != null) {
+            return params.isEdwards;
+        }
+        return false;
     }
 
     protected final ECParams ecParams(final ECCurves ec) {
@@ -240,8 +250,8 @@ public final class PGPKey {
     private final KeyPair generateEC(final ECCurves ec) {
         ECParams params = ecParams(ec);
 
-        ECPrivateKey priv = (ECPrivateKey)KeyBuilder.buildKey(KeyBuilder.TYPE_EC_FP_PRIVATE, params.nb_bits, false);
-        ECPublicKey pub = (ECPublicKey)KeyBuilder.buildKey(KeyBuilder.TYPE_EC_FP_PUBLIC, params.nb_bits, false);
+        XECPrivateKey priv = params.createPrivateKey(true);
+        XECPublicKey pub = params.createPublicKey(true);
 
         if((priv == null) || (pub == null)) {
             params = null;
@@ -250,9 +260,6 @@ public final class PGPKey {
             Common.requestDeletion();
             return null;
         }
-
-        params.setParams(priv);
-        params.setParams(pub);
 
         return new KeyPair(pub, priv);
     }
@@ -379,19 +386,12 @@ public final class PGPKey {
                                       final byte tag_count, final byte[] tag_val, final short[] tag_len) {
         final ECParams params = ecParams(ec);
 
-        final ECPrivateKey priv = (ECPrivateKey)KeyBuilder.buildKey(KeyBuilder.TYPE_EC_FP_PRIVATE,
-                                                                    params.nb_bits,
-                                                                    false);
-        final ECPublicKey pub = (ECPublicKey)KeyBuilder.buildKey(KeyBuilder.TYPE_EC_FP_PUBLIC,
-                                                                 params.nb_bits,
-                                                                 false);
+        final XECPrivateKey priv = params.createPrivateKey(true);
+        final XECPublicKey pub = params.createPublicKey(true);
 
         if((priv == null) || (pub == null)) {
             return null;
         }
-
-        params.setParams(priv);
-        params.setParams(pub);
 
         short off = boff;
         byte i = 0;
@@ -407,17 +407,15 @@ public final class PGPKey {
                 if(tag_len[i] > Common.bitsToBytes(params.nb_bits)) {
                     return null;
                 }
-                priv.setS(buf, off, tag_len[i]);
+                priv.setEncoded(buf, off, tag_len[i]);
                 break;
 
             case (byte)0x99:
-                if(tag_len[i] > (short)(2 * Common.bitsToBytes(params.nb_bits) + 1)) {
-                    return null;
+                if((tag_len[i] == (short)(Common.bitsToBytes(params.nb_bits) + 1) && (buf[off] == (byte)0x40))) {
+                    off +=(short)1;
+                    tag_len[i] -= (short)1;
                 }
-                if(((byte)(tag_len[i] - 1) & (byte)0x1) != 0) {
-                    return null;
-                }
-                pub.setW(buf, off, tag_len[i]);
+                pub.setEncoded(buf, off, tag_len[i]);
                 break;
 
             default:
@@ -560,25 +558,25 @@ public final class PGPKey {
 
             return off;
         } else if(isEc()) {
-            final ECPublicKey ecpub = (ECPublicKey)pub;
-            final short qsize = (short)(1 + 2 * (short)((ecpub.getSize() / 8) + (((ecpub.getSize() % 8) == 0) ? 0 : 1)));
-            short rsize = (short)(1 + qsize);
+            final XECPublicKey ecpub = (XECPublicKey)pub;
+            final short size = ecpub.getEncodingLength();
+            short rsize = size;
 
-            if(qsize > 0x7f) {
+            if(rsize > 0x7f) {
                 rsize = (short)(rsize + 2);
             } else {
                 rsize = (short)(rsize + 1);
             }
 
+            rsize += (short)1;
+
             off = Common.writeLength(buf, off, rsize);
 
             buf[off++] = (byte)0x86;
 
-            off = Common.writeLength(buf, off, qsize);
+            off = Common.writeLength(buf, off, size);
 
-            off += ecpub.getW(buf, off);
-
-            return off;
+            return ecpub.getEncoded(buf, off);
         }
 
         ISOException.throwIt(ISO7816.SW_CONDITIONS_NOT_SATISFIED);
@@ -589,6 +587,7 @@ public final class PGPKey {
 
 
     protected final short sign(final Common common,
+                               final ECCurves ec,
                                final byte[] buf, final short lc,
                                final boolean forAuth) {
         if(!isInitialized()) {
@@ -638,8 +637,12 @@ public final class PGPKey {
         } else if(isEc()) {
 
             Signature sig;
+            boolean raw = false;
 
-            if(lc == MessageDigest.LENGTH_SHA) {
+            if(isEcEdwards(ec)) {
+                sig = common.sign_eddsa;
+                raw = true;
+            } else if(lc == MessageDigest.LENGTH_SHA) {
                 sig = common.sign_ecdsa_sha;
             } else if(lc == MessageDigest.LENGTH_SHA_224) {
                 sig = common.sign_ecdsa_sha_224;
@@ -656,64 +659,70 @@ public final class PGPKey {
 
             sig.init(priv, Signature.MODE_SIGN);
 
-            final short sig_size = sig.signPreComputedHash(buf, (short)0, lc,
-                                                           buf, lc);
+            if(raw) {
+                final short sig_size = sig.sign(buf, (short)0, lc, buf, lc);
 
-            off = (short)(lc + 1);
-            if((buf[off] & (byte)0x80) != (byte)0) {
+                off = Util.arrayCopyNonAtomic(buf, lc,
+                                              buf, (short)0, sig_size);
+            } else {
+                final short sig_size = sig.signPreComputedHash(buf, (short)0, lc, buf, lc);
+
+                off = (short)(lc + 1);
+                if((buf[off] & (byte)0x80) != (byte)0) {
+                    ++off;
+                }
                 ++off;
+
+                if((buf[off++] != (byte)0x02)) {
+                    ISOException.throwIt(ISO7816.SW_WRONG_DATA);
+                    return 0;
+                }
+
+                if((buf[off] & (byte)0x80) != (byte)0) {
+                    ISOException.throwIt(ISO7816.SW_WRONG_DATA);
+                    return 0;
+                }
+
+                final short r_size = Util.makeShort((byte)0, buf[off++]);
+                final short r_off = off;
+
+                off += r_size;
+
+                if((buf[off++] != (byte)0x02)) {
+                    ISOException.throwIt(ISO7816.SW_WRONG_DATA);
+                    return 0;
+                }
+
+                if((buf[off] & (byte)0x80) != (byte)0) {
+                    ISOException.throwIt(ISO7816.SW_WRONG_DATA);
+                    return 0;
+                }
+
+                final short s_size = Util.makeShort((byte)0, buf[off++]);
+                final short s_off = off;
+
+                off = (short)(lc + sig_size);
+
+                if(r_size < s_size) {
+                    off = Util.arrayFillNonAtomic(buf, off, (short)(s_size - r_size), (byte)0);
+                }
+
+                off = Util.arrayCopyNonAtomic(buf, r_off,
+                                              buf, off, r_size);
+
+                if(s_size < r_size) {
+                    off = Util.arrayFillNonAtomic(buf, off, (short)(r_size - s_size), (byte)0);
+                }
+
+                off = Util.arrayCopyNonAtomic(buf, s_off,
+                                              buf, off, s_size);
+
+                off = Util.arrayCopyNonAtomic(buf, (short)(lc + sig_size),
+                                              buf, (short)0,
+                                              (short)(off - lc - sig_size));
+
+                Util.arrayFillNonAtomic(buf, off, (short)(lc + sig_size - off), (byte)0);
             }
-            ++off;
-
-            if((buf[off++] != (byte)0x02)) {
-                ISOException.throwIt(ISO7816.SW_WRONG_DATA);
-                return 0;
-            }
-
-            if((buf[off] & (byte)0x80) != (byte)0) {
-                ISOException.throwIt(ISO7816.SW_WRONG_DATA);
-                return 0;
-            }
-
-            final short r_size = Util.makeShort((byte)0, buf[off++]);
-            final short r_off = off;
-
-            off += r_size;
-
-            if((buf[off++] != (byte)0x02)) {
-                ISOException.throwIt(ISO7816.SW_WRONG_DATA);
-                return 0;
-            }
-
-            if((buf[off] & (byte)0x80) != (byte)0) {
-                ISOException.throwIt(ISO7816.SW_WRONG_DATA);
-                return 0;
-            }
-
-            final short s_size = Util.makeShort((byte)0, buf[off++]);
-            final short s_off = off;
-
-            off = (short)(lc + sig_size);
-
-            if(r_size < s_size) {
-                off = Util.arrayFillNonAtomic(buf, off, (short)(s_size - r_size), (byte)0);
-            }
-
-            off = Util.arrayCopyNonAtomic(buf, r_off,
-                                          buf, off, r_size);
-
-            if(s_size < r_size) {
-                off = Util.arrayFillNonAtomic(buf, off, (short)(r_size - s_size), (byte)0);
-            }
-
-            off = Util.arrayCopyNonAtomic(buf, s_off,
-                                          buf, off, s_size);
-
-            off = Util.arrayCopyNonAtomic(buf, (short)(lc + sig_size),
-                                          buf, (short)0,
-                                          (short)(off - lc - sig_size));
-
-            Util.arrayFillNonAtomic(buf, off, (short)(lc + sig_size - off), (byte)0);
 
             return off;
         }
@@ -766,11 +775,16 @@ public final class PGPKey {
             final ECParams params = ecParams(ec);
             short elc = 7;
 
-            if(params.nb_bits >= (short)512) {
-                elc = 10;
+            short factor = (short)2;
+            if(params.isEdwards) {
+                factor = (short)1;
+            } else if(params.nb_bits >= (short)512) {
+                elc = (short)11;
+            } else {
+                elc = (short)8;
             }
 
-            if(lc != (short)(elc + 1 + (short)(2 * Common.bitsToBytes(params.nb_bits)))) {
+            if(lc != (short)(elc + (short)(factor * Common.bitsToBytes(params.nb_bits)))) {
                 ISOException.throwIt(ISO7816.SW_WRONG_DATA);
                 return 0;
             }
@@ -814,16 +828,28 @@ public final class PGPKey {
                 return 0;
             }
 
-            common.ka_ec_dh.init(priv);
+            if(params.isEdwards) {
+                common.ka_xdh.init(priv);
 
-            final short len  = common.ka_ec_dh.generateSecret(buf, off, (short)(lc - off),
-                                                              buf, lc);
+                final short len  = common.ka_xdh.generateSecret(buf, off, (short)(lc - off),
+                                                                buf, lc);
 
-            off = Util.arrayCopyNonAtomic(buf, lc,
-                                          buf, (short)0,
-                                          len);
+                off = Util.arrayCopyNonAtomic(buf, lc,
+                                              buf, (short)0, len);
 
-            Util.arrayFillNonAtomic(buf, lc, len, (byte)0);
+                Util.arrayFillNonAtomic(buf, lc, len, (byte)0);
+            } else {
+                common.ka_ec_dh.init(priv);
+
+                final short len  = common.ka_ec_dh.generateSecret(buf, off, (short)(lc - off),
+                                                                  buf, lc);
+
+                off = Util.arrayCopyNonAtomic(buf, lc,
+                                              buf, (short)0,
+                                              len);
+
+                Util.arrayFillNonAtomic(buf, lc, len, (byte)0);
+            }
 
             return off;
         }

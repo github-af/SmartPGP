@@ -8,7 +8,7 @@ on:
 
 env:
   SUFFIX: ${{ github.ref_type == 'tag' && github.ref_name || github.sha }}
-  JCKIT: jc304_kit
+  JCKIT: jc310r20210706_kit
 
 jobs:
   build-and-test:
