@@ -20,9 +20,22 @@
 
 package fr.anssi.smartpgp;
 
-import javacard.framework.*;
-import javacard.security.*;
-import javacardx.crypto.*;
+import javacard.framework.ISO7816;
+import javacard.framework.ISOException;
+import javacard.framework.JCSystem;
+import javacard.framework.Util;
+import javacard.security.KeyAgreement;
+import javacard.security.KeyBuilder;
+import javacard.security.KeyPair;
+import javacard.security.MessageDigest;
+import javacard.security.PrivateKey;
+import javacard.security.PublicKey;
+import javacard.security.RSAPrivateCrtKey;
+import javacard.security.RSAPublicKey;
+import javacard.security.Signature;
+import javacard.security.ECPrivateKey;
+import javacard.security.ECPublicKey;
+import javacardx.crypto.Cipher;
 
 public final class PGPKey {
 
