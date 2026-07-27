@@ -15,7 +15,7 @@ jobs:
     name: Build and test
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install Oracle JCSDKs
         run: |
@@ -103,7 +103,7 @@ jobs:
           cp -R *.cap output/SmartPGP-${{ env.SUFFIX }}/
 
       - name: Upload applets
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: SmartPGP-${{ env.SUFFIX }}
           path: output
