@@ -20,9 +20,12 @@
 
 package fr.anssi.smartpgp;
 
-import javacard.framework.*;
-import javacard.security.*;
-
+import javacard.framework.JCSystem;
+import javacard.framework.Util;
+import javacard.security.KeyBuilder;
+import javacard.security.ECKey;
+import javacard.security.ECPrivateKey;
+import javacard.security.ECPublicKey;
 
 public final class ECParams {
 
