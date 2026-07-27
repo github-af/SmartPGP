@@ -20,7 +20,7 @@
 
 package fr.anssi.smartpgp;
 
-import javacard.framework.*;
+import javacard.framework.Util;
 
 public final class Constants {
 

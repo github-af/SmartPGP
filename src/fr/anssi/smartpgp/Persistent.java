@@ -20,8 +20,10 @@
 
 package fr.anssi.smartpgp;
 
-import javacard.framework.*;
-import javacard.security.*;
+import javacard.framework.ISOException;
+import javacard.framework.OwnerPIN;
+import javacard.framework.Util;
+import javacard.security.AESKey;
 
 public final class Persistent {
 
