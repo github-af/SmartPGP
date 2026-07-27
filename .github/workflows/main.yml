@@ -27,6 +27,39 @@ jobs:
       - name: Install build dependencies
         run: sudo apt-get install -y --no-install-recommends openjdk-11-jdk-headless ant git
 
+      - name: Build applet (RSA 2048)
+        run: |
+          patch -p1 < .github/workflows/rsa-2048.patch
+          JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64 JC_HOME=/tmp/${{ env.JCKIT }}/ ant
+          patch -p1 -R < .github/workflows/rsa-2048.patch
+          mv SmartPGPApplet.cap SmartPGPApplet-rsa_up_to_2048.cap
+
+      - name: Build applet (RSA 3072)
+        run: |
+          patch -p1 < .github/workflows/rsa-3072.patch
+          JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64 JC_HOME=/tmp/${{ env.JCKIT }}/ ant
+          patch -p1 -R < .github/workflows/rsa-3072.patch
+          mv SmartPGPApplet.cap SmartPGPApplet-rsa_up_to_3072.cap
+
+      - name: Build applet (RSA 4096)
+        run: |
+          patch -p1 < .github/workflows/rsa-4096.patch
+          JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64 JC_HOME=/tmp/${{ env.JCKIT }}/ ant
+          patch -p1 -R < .github/workflows/rsa-4096.patch
+          mv SmartPGPApplet.cap SmartPGPApplet-rsa_up_to_4096.cap
+
+      - name: Gather applets
+        run: |
+          mkdir -p output/SmartPGP-${{ env.SUFFIX }}
+          cp -R *.cap output/SmartPGP-${{ env.SUFFIX }}/
+
+      - name: Upload applets
+        uses: actions/upload-artifact@v7
+        with:
+          name: SmartPGP-${{ env.SUFFIX }}
+          path: output
+          retention-days: 0
+
       - name: Build applet
         run: JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64 JC_HOME=/tmp/${{ env.JCKIT }}/ ant
 
@@ -75,37 +108,4 @@ jobs:
         run: |
           python3 .github/workflows/card-status.py
           python3 .github/workflows/test_SmartPGP.py
-
-      - name: Build applet (RSA 2048)
-        run: |
-          patch -p1 < .github/workflows/rsa-2048.patch
-          JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64 JC_HOME=/tmp/${{ env.JCKIT }}/ ant
-          patch -p1 -R < .github/workflows/rsa-2048.patch
-          mv SmartPGPApplet.cap SmartPGPApplet-rsa_up_to_2048.cap
-
-      - name: Build applet (RSA 3072)
-        run: |
-          patch -p1 < .github/workflows/rsa-3072.patch
-          JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64 JC_HOME=/tmp/${{ env.JCKIT }}/ ant
-          patch -p1 -R < .github/workflows/rsa-3072.patch
-          mv SmartPGPApplet.cap SmartPGPApplet-rsa_up_to_3072.cap
-
-      - name: Build applet (RSA 4096)
-        run: |
-          patch -p1 < .github/workflows/rsa-4096.patch
-          JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64 JC_HOME=/tmp/${{ env.JCKIT }}/ ant
-          patch -p1 -R < .github/workflows/rsa-4096.patch
-          mv SmartPGPApplet.cap SmartPGPApplet-rsa_up_to_4096.cap
-
-      - name: Gather applets
-        run: |
-          mkdir -p output/SmartPGP-${{ env.SUFFIX }}
-          cp -R *.cap output/SmartPGP-${{ env.SUFFIX }}/
-
-      - name: Upload applets
-        uses: actions/upload-artifact@v7
-        with:
-          name: SmartPGP-${{ env.SUFFIX }}
-          path: output
-          retention-days: 0
 
