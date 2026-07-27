@@ -20,10 +20,16 @@
 
 package fr.anssi.smartpgp;
 
-import javacard.framework.*;
-import javacard.security.*;
-import javacardx.crypto.*;
+import javacard.framework.APDU;
+import javacard.framework.Applet;
+import javacard.framework.ISO7816;
+import javacard.framework.ISOException;
+import javacard.framework.JCSystem;
+import javacard.framework.Util;
+import javacard.security.AESKey;
+import javacard.security.KeyBuilder;
 import javacardx.apdu.ExtendedLength;
+import javacardx.crypto.Cipher;
 
 public final class SmartPGPApplet extends Applet implements ExtendedLength {
 

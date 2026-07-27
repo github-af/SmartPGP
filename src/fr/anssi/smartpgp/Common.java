@@ -20,9 +20,15 @@
 
 package fr.anssi.smartpgp;
 
-import javacard.framework.*;
-import javacard.security.*;
-import javacardx.crypto.*;
+import javacard.framework.ISO7816;
+import javacard.framework.ISOException;
+import javacard.framework.JCSystem;
+import javacard.framework.Util;
+import javacard.security.KeyAgreement;
+import javacard.security.MessageDigest;
+import javacard.security.RandomData;
+import javacard.security.Signature;
+import javacardx.crypto.Cipher;
 
 public final class Common {
     protected final Cipher cipher_aes_cbc_nopad;

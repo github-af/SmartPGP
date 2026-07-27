@@ -20,7 +20,7 @@
 
 package fr.anssi.smartpgp;
 
-import javacard.framework.*;
+import javacard.framework.JCSystem;
 
 public final class Transients {
 
