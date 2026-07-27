@@ -20,9 +20,11 @@
 
 package fr.anssi.smartpgp;
 
-import javacard.framework.*;
-import javacard.security.*;
-import javacardx.crypto.*;
+import javacard.framework.JCSystem;
+import javacard.framework.Util;
+import javacard.security.AESKey;
+import javacard.security.KeyBuilder;
+import javacardx.crypto.Cipher;
 
 public final class CmacKey {
 

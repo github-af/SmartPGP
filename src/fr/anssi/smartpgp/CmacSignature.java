@@ -20,9 +20,10 @@
 
 package fr.anssi.smartpgp;
 
-import javacard.framework.*;
-import javacard.security.*;
-import javacardx.crypto.*;
+import javacard.framework.JCSystem;
+import javacard.framework.Util;
+import javacard.security.CryptoException;
+import javacardx.crypto.Cipher;
 
 public final class CmacSignature {
 
