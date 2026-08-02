@@ -145,7 +145,7 @@ public final class PGPKey {
     }
 
     protected final void setAttributes(final ECCurves ec,
-                                       final byte[] buf, final short off, final short len) {
+                                       final byte[] buf, final short off, short len) {
         if((len < Constants.ALGORITHM_ATTRIBUTES_MIN_LENGTH) ||
            (len > Constants.ALGORITHM_ATTRIBUTES_MAX_LENGTH)) {
             ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
@@ -173,8 +173,11 @@ public final class PGPKey {
                 ISOException.throwIt(ISO7816.SW_WRONG_DATA);
                 return;
             }
-            final byte delta = (buf[(short)(len - 1)] == (byte)0xff) ? (byte)1 : (byte)0;
-            final ECParams params = ec.findByOid(buf, (short)(off + 1), (byte)(len - 1 - delta));
+            if(buf[(short)(len - 1)] != (byte)0xff) {
+                buf[len] = (byte)0xff;
+                len++;
+            }
+            final ECParams params = ec.findByOid(buf, (short)(off + 1), (byte)(len - 1 - 1));
             if(params == null) {
                 ISOException.throwIt(ISO7816.SW_WRONG_DATA);
                 return;
