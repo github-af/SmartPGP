@@ -74,7 +74,7 @@ jobs:
         run: |
           git clone https://github.com/licel/jcardsim
           cd jcardsim
-          export JC_CLASSIC_HOME=/tmp/jc305u4_kit/
+          export JC_CLASSIC_HOME=$(pwd)/../oracle_javacard_sdks/jc305u4_kit/
           mvn --quiet initialize
           mvn --quiet clean package -DskipTests=true
           cd ..
