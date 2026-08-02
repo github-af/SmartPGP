@@ -21,9 +21,7 @@ jobs:
 
       - name: Build applet (RSA 2048)
         run: |
-          patch -p1 < .github/workflows/rsa-2048.patch
           JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64 ant
-          patch -p1 -R < .github/workflows/rsa-2048.patch
           mv SmartPGPApplet.cap SmartPGPApplet-rsa_up_to_2048.cap
 
       - name: Build applet (RSA 3072)
