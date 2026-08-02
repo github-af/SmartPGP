@@ -15,6 +15,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          submodules: 'true'
 
       - name: Install build dependencies
         run: sudo apt-get install -y --no-install-recommends openjdk-11-jdk-headless ant git
@@ -72,7 +74,7 @@ jobs:
         run: |
           git clone https://github.com/licel/jcardsim
           cd jcardsim
-          export JC_CLASSIC_HOME=/tmp/jc305u4_kit/
+          export JC_CLASSIC_HOME=$(pwd)/../oracle_javacard_sdks/jc305u4_kit/
           mvn --quiet initialize
           mvn --quiet clean package -DskipTests=true
           cd ..
