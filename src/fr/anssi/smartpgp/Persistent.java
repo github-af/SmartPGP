@@ -114,7 +114,7 @@ public final class Persistent {
         do_0101_length = 0;
 
         do_0102 = new byte[Constants.specialDoMaxLength()];
-        do_0101_length = 0;
+        do_0102_length = 0;
 
         do_0103 = new byte[Constants.specialDoMaxLength()];
         do_0103_length = 0;
